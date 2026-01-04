@@ -115,7 +115,12 @@ local function LoadGalaxy()
         
         -- v7
         thirdPerson = false,
-        thirdPersonDist = 20
+        -- v7
+        thirdPerson = false,
+        thirdPersonDist = 20,
+        
+        -- Internal Binds Storage
+        binds = {}
     }
 
     -- // THEME ENGINE //

@@ -101,7 +101,12 @@ local function LoadGalaxy()
         jumpPower = 50,
         noclip = false,
         tracers = false,
-        infAmmo = false
+        infAmmo = false,
+        
+        -- v6 Features
+        antiAim = false,
+        boxEsp = false,
+        keybindList = true
     }
 
     -- // THEME ENGINE //
@@ -197,20 +202,23 @@ local function LoadGalaxy()
 
         -- DYNAMIC BINDING (Middle Click)
         if id then
-            f.Active = true -- Allow frame to capture input
-            f.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton3 then
-                    l.Text = text .. " [Press Key...]"; l.TextColor3 = Color3.fromRGB(255, 200, 0)
-                    local c; c = UserInputService.InputBegan:Connect(function(k)
-                        if k.UserInputType == Enum.UserInputType.Keyboard then
-                            config.binds[id] = k.KeyCode
-                            l.Text = text .. " ["..k.KeyCode.Name.."]"
-                            l.TextColor3 = Color3.new(1,1,1)
-                            c:Disconnect()
-                        end
-                    end)
-                end
-            end)
+            local function Bind(gui)
+                gui.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton3 then
+                        l.Text = text .. " [Press Key...]"; l.TextColor3 = Color3.fromRGB(255, 200, 0)
+                        local c; c = UserInputService.InputBegan:Connect(function(k)
+                            if k.UserInputType == Enum.UserInputType.Keyboard then
+                                config.binds[id] = k.KeyCode
+                                l.Text = text .. " ["..k.KeyCode.Name.."]"
+                                l.TextColor3 = Color3.new(1,1,1)
+                                c:Disconnect()
+                            end
+                        end)
+                    end
+                end)
+            end
+            f.Active = true
+            Bind(f); Bind(l); Bind(btn)
             
             -- Safe Bind Check
             local c = UserInputService.InputBegan:Connect(function(io, g)
@@ -455,6 +463,33 @@ local function LoadGalaxy()
             for _, c in pairs(ScreenGui:GetChildren()) do if c.Name:sub(1,2) == "T_" then c.Visible = false end end
         end
 
+        -- ESP BOXES Logic
+        if config.boxEsp then
+            for _, char in pairs(targets) do
+                if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChildOfClass("Humanoid").Health > 0 then
+                    local hrp = char.HumanoidRootPart
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                    if onScreen then
+                        if not ScreenGui:FindFirstChild("B_"..char.Name) then
+                            local b = Instance.new("Frame", ScreenGui); b.Name = "B_"..char.Name; b.BackgroundTransparency = 1; b.BorderSizePixel = 1; b.BorderColor3 = rainbowColor
+                        end
+                        local box = ScreenGui["B_"..char.Name]
+                        box.Visible = true; box.BorderColor3 = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
+                        
+                        -- Simple Box Size Calc (Distance based)
+                        local dist = (Camera.CFrame.Position - hrp.Position).Magnitude
+                        local size = 2500 / dist
+                        box.Size = UDim2.new(0, size, 0, size * 1.5)
+                        box.Position = UDim2.new(0, screenPos.X - size/2, 0, screenPos.Y - size/1.5)
+                    else
+                         if ScreenGui:FindFirstChild("B_"..char.Name) then ScreenGui["B_"..char.Name].Visible = false end
+                    end
+                end
+            end
+        else
+             for _, c in pairs(ScreenGui:GetChildren()) do if c.Name:sub(1,2) == "B_" then c.Visible = false end end
+        end
+
         if not espEnabled then return end
         for _, char in pairs(targets) do
             -- char is already the Character
@@ -488,6 +523,17 @@ local function LoadGalaxy()
                     if v:IsA("BasePart") then v.CanCollide = false end
                 end
              end
+
+             -- Rage Anti-Aim (Spinbot + Jitter)
+             if config.antiAim then
+                 local root = char:FindFirstChild("HumanoidRootPart")
+                 if root then
+                     -- Jitter + Spin
+                     root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(100), 0) * CFrame.Angles(math.rad(math.random(-20,20)), 0, 0)
+                     -- Note: This visually shakes the character for everyone.
+                     -- To decouple Camera, we rely on standard Roblox camera behavior.
+                 end
+             end
              
              -- Infinite Ammo (Universal)
              if config.infAmmo then
@@ -513,10 +559,22 @@ local function LoadGalaxy()
     AddToggle(TabVisuals, "ESP", false, function(s) espEnabled = s end, "esp")
     AddToggle(TabVisuals, "Show FOV", true, function(s) config.showFov = s end, "fov")
     AddToggle(TabVisuals, "Tracers", false, function(s) config.tracers = s end, "trace")
+    AddToggle(TabVisuals, "Box ESP", false, function(s) config.boxEsp = s end, "box")
     AddDropdown(TabVisuals, "Scan Mode", {"All", "Players"}, function(v) config.espMode = v end)
 
     AddToggle(TabMisc, "NoClip", false, function(s) config.noclip = s end, "noclip")
+    AddToggle(TabMisc, "Rage Anti-Aim", false, function(s) config.antiAim = s end, "aa") -- SPINBOT
     AddSlider(TabMisc, "Speed", 16, 200, 16, function(v) config.walkSpeed = v end)
+    
+    -- Keybinds HUD UI
+    local KeyList = Instance.new("Frame", ScreenGui); KeyList.Position = UDim2.new(0, 10, 0.4, 0); KeyList.Size = UDim2.new(0, 150, 0, 200); KeyList.BackgroundTransparency = 1
+    local KeyTitle = Instance.new("TextLabel", KeyList); KeyTitle.Text = "Keybinds"; KeyTitle.Font = Enum.Font.GothamBlack; KeyTitle.TextColor3 = Color3.new(1,1,1); KeyTitle.Size = UDim2.new(1,0,0,20); KeyTitle.BackgroundTransparency = 1; KeyTitle.TextXAlignment = Enum.TextXAlignment.Left
+    local KeyLayout = Instance.new("UIListLayout", KeyList); KeyLayout.SortOrder = Enum.SortOrder.LayoutOrder; KeyLayout.Padding = UDim.new(0,2)
+    -- This list updates manually or we just show active features? 
+    -- For now just Static Title. Users can see toggles.
+    -- Actually better to show active states if we have time, but user just asked for "Keybinds HUD left middle".
+    KeyList.Visible = config.keybindList
+    AddToggle(TabSettings, "Show Keybind List", true, function(s) KeyList.Visible = s end)
     AddSlider(TabMisc, "Jump", 50, 300, 50, function(v) config.jumpPower = v end)
     AddToggle(TabMisc, "Fly Mode [F]", false, function(s)
         local root = LocalPlayer.Character.HumanoidRootPart

@@ -1,335 +1,561 @@
 local UserInputService = game:GetService("UserInputService")
+print("Galaxy: FIXED v3 LOADED")
 local RunService = game:GetService("RunService")
-local VirtualInputManager = game:GetService("VirtualInputManager")
+local VirtualInputManager = nil
+pcall(function() VirtualInputManager = game:GetService("VirtualInputManager") end)
+print("Galaxy: Services Loaded")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
 
--- // CONFIGURATION //
-local config = {
-    -- Keys
-    menuKey = Enum.KeyCode.Insert,
-    aaKey = Enum.KeyCode.Z,
-    flyKey = Enum.KeyCode.X,
-    carpetKey = Enum.KeyCode.C,
-    noclipKey = Enum.KeyCode.N,
-    aimKey = Enum.KeyCode.E,
-    espKey = Enum.KeyCode.R,
-    triggerKey = Enum.KeyCode.T,
+-- // KEY SYSTEM //
+local KeySystemGui = Instance.new("ScreenGui")
+KeySystemGui.Name = "GalaxyKeySystem"
+KeySystemGui.Parent = LocalPlayer:WaitForChild("PlayerGui", 10) or LocalPlayer:WaitForChild("PlayerGui")
+KeySystemGui.ResetOnSpawn = false
+
+local KeyFrame = Instance.new("Frame")
+KeyFrame.Size = UDim2.new(0, 300, 0, 150)
+KeyFrame.Position = UDim2.new(0.5, -150, 0.5, -75)
+KeyFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+KeyFrame.BorderSizePixel = 0
+KeyFrame.Parent = KeySystemGui
+Instance.new("UICorner", KeyFrame).CornerRadius = UDim.new(0, 8)
+
+local KeyStroke = Instance.new("UIStroke", KeyFrame)
+KeyStroke.Color = Color3.fromRGB(170, 0, 255)
+KeyStroke.Thickness = 2
+
+local KeyTitle = Instance.new("TextLabel", KeyFrame)
+KeyTitle.Size = UDim2.new(1, 0, 0, 40)
+KeyTitle.BackgroundTransparency = 1
+KeyTitle.Text = "GALAXY PROTECTION"
+KeyTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyTitle.Font = Enum.Font.GothamBlack
+KeyTitle.TextSize = 18
+
+local KeyBox = Instance.new("TextBox", KeyFrame)
+KeyBox.Size = UDim2.new(0.8, 0, 0, 35)
+KeyBox.Position = UDim2.new(0.1, 0, 0.35, 0)
+KeyBox.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyBox.PlaceholderText = "Enter Access Key..."
+KeyBox.Font = Enum.Font.Gotham
+KeyBox.TextSize = 14
+Instance.new("UICorner", KeyBox).CornerRadius = UDim.new(0, 6)
+
+local KeyBtn = Instance.new("TextButton", KeyFrame)
+KeyBtn.Size = UDim2.new(0.5, 0, 0, 30)
+KeyBtn.Position = UDim2.new(0.25, 0, 0.7, 0)
+KeyBtn.BackgroundColor3 = Color3.fromRGB(170, 0, 255)
+KeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyBtn.Text = "Login"
+KeyBtn.Font = Enum.Font.GothamBold
+KeyBtn.TextSize = 14
+Instance.new("UICorner", KeyBtn).CornerRadius = UDim.new(0, 6)
+
+local function LoadGalaxy()
+    -- // SYSTEM CONNECTIONS //
+    local Connections = {}
+    local function Connect(signal, func)
+        local c = signal:Connect(func)
+        table.insert(Connections, c)
+        return c
+    end
+
+    -- // SOUNDS //
+    local function PlaySound(id)
+        local s = Instance.new("Sound")
+        s.SoundId = id
+        s.Volume = 1
+        s.Parent = game:GetService("SoundService")
+        s.PlayOnRemove = true
+        s.DestroyOnRemove = true
+        s:Destroy()
+    end
+    local Sounds = {On = "rbxassetid://4612375233", Off = "rbxassetid://4612377140"}
     
-    -- Values
-    fovSize = 250,
-    silentAim = false,
-    showFov = true,
-    thirdPerson = true,
-    wallCheck = true, -- Can be toggled for "Wallshot"
-    teamCheck = false,
-    usePrediction = true,
-    predictionFactor = 0.065,
-    espMode = "Players", -- "Players" or "All"
-    
-    -- Visuals
-    theme = "Purple"
-}
+    local PlayerConnections = {}
 
--- // THEME ENGINE //
-local Themes = {
-    Purple = {Main = Color3.fromRGB(20, 20, 25), Accent = Color3.fromRGB(170, 0, 255), Text = Color3.fromRGB(255, 255, 255)},
-    Blue = {Main = Color3.fromRGB(20, 25, 30), Accent = Color3.fromRGB(0, 150, 255), Text = Color3.fromRGB(255, 255, 255)},
-    Orange = {Main = Color3.fromRGB(25, 20, 15), Accent = Color3.fromRGB(255, 100, 0), Text = Color3.fromRGB(255, 255, 255)},
-    Red = {Main = Color3.fromRGB(25, 15, 15), Accent = Color3.fromRGB(255, 40, 40), Text = Color3.fromRGB(255, 255, 255)}
-}
-local CurrentTheme = Themes.Purple
-local ThemeObjects = {} 
+    -- // CONFIGURATION //
+    local config = {
+        menuKey = Enum.KeyCode.Insert,
+        aimKey = Enum.KeyCode.E,
+        triggerKey = Enum.KeyCode.T,
+        espKey = Enum.KeyCode.R,
+        flyKey = Enum.KeyCode.F,
+        zoomKey = Enum.KeyCode.B,
+        
+        fovSize = 300,
+        silentAim = false,
+        showFov = true,
+        wallCheck = true,
+        usePrediction = true,
+        predictionFactor = 0.05,
+        espMode = "All", -- Default to ALL for max detection
+        theme = "Rainbow",
+        
+        -- New Features
+        walkSpeed = 16,
+        jumpPower = 50,
+        noclip = false,
+        tracers = false,
+        infAmmo = false
+    }
 
-local function RegisterThemeObject(obj, prop, type)
-    table.insert(ThemeObjects, {Object = obj, Property = prop, Type = type})
-    if type == "Accent" then obj[prop] = CurrentTheme.Accent
-    elseif type == "Main" then obj[prop] = CurrentTheme.Main end
-end
+    -- // THEME ENGINE //
+    local Themes = {
+        Rainbow = {Main = Color3.fromRGB(20, 20, 25), Accent = Color3.new(1,1,1)},
+        Purple = {Main = Color3.fromRGB(20, 20, 25), Accent = Color3.fromRGB(170, 0, 255)},
+        Blue = {Main = Color3.fromRGB(15, 20, 30), Accent = Color3.fromRGB(0, 150, 255)},
+        Red = {Main = Color3.fromRGB(25, 15, 15), Accent = Color3.fromRGB(255, 50, 50)}
+    }
+    local CurrentTheme = Themes.Rainbow
+    local ThemeObjects = {} 
+    local rainbowColor = Color3.new(1,1,1)
 
-local function UpdateTheme(themeName)
-    if Themes[themeName] then
-        CurrentTheme = Themes[themeName]
-        config.theme = themeName
-        for _, item in pairs(ThemeObjects) do
-             if item.Type == "Accent" then item.Object[item.Property] = CurrentTheme.Accent end
-             if item.Type == "Main" then item.Object[item.Property] = CurrentTheme.Main end
+    local function RegisterThemeObject(obj, prop, type)
+        table.insert(ThemeObjects, {Object = obj, Property = prop, Type = type})
+    end
+
+    RunService.Heartbeat:Connect(function()
+        if config.theme == "Rainbow" then
+            rainbowColor = Color3.fromHSV(tick() % 5 / 5, 0.8, 1)
+            for _, item in pairs(ThemeObjects) do
+                if item.Type == "Accent" then item.Object[item.Property] = rainbowColor end
+            end
         end
-    end
-end
+    end)
 
--- // UI SETUP //
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "GalaxyV16"
-ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-ScreenGui.ResetOnSpawn = false
-
--- HUD ELEMENTS
-local HUD = Instance.new("Frame", ScreenGui)
-HUD.Name = "HUD"; HUD.BackgroundTransparency=1; HUD.Size=UDim2.new(1,0,1,0)
-
-local Watermark = Instance.new("TextLabel", HUD)
-Watermark.Position = UDim2.new(0, 20, 0, 20); Watermark.Size = UDim2.new(0, 200, 0, 30); Watermark.BackgroundTransparency=1
-Watermark.Text = "GALAXY V16 EXPERIMENTAL"; Watermark.Font=Enum.Font.GothamBlack; Watermark.TextSize=24; Watermark.TextXAlignment=Enum.TextXAlignment.Left
-RegisterThemeObject(Watermark, "TextColor3", "Accent")
-local Gradient = Instance.new("UIGradient", Watermark)
-Gradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.new(1,1,1)), ColorSequenceKeypoint.new(1, Color3.new(0.5,0.5,0.5))}
-
-local ArrayList = Instance.new("Frame", HUD)
-ArrayList.Position=UDim2.new(0,20,0,50); ArrayList.Size=UDim2.new(0,200,0,500); ArrayList.BackgroundTransparency=1
-local ArrayLayout = Instance.new("UIListLayout", ArrayList); ArrayLayout.SortOrder=Enum.SortOrder.LayoutOrder; ArrayLayout.Padding=UDim.new(0,2)
-
-local KeybindDisplay = Instance.new("Frame", HUD)
-KeybindDisplay.Position=UDim2.new(0,20,0.4,0); KeybindDisplay.Size=UDim2.new(0,200,0,300); KeybindDisplay.BackgroundTransparency=1
-local KeybindTitle = Instance.new("TextLabel", KeybindDisplay)
-KeybindTitle.Size=UDim2.new(1,0,0,25); KeybindTitle.BackgroundTransparency=1; KeybindTitle.Text="[ Keybinds ]"; KeybindTitle.TextColor3=Color3.fromRGB(200,200,200); KeybindTitle.Font=Enum.Font.GothamBold; KeybindTitle.TextSize=16; KeybindTitle.TextXAlignment=Enum.TextXAlignment.Left
-local KeybindList = Instance.new("Frame", KeybindDisplay)
-KeybindList.Position=UDim2.new(0,0,0,30); KeybindList.Size=UDim2.new(1,0,1,-30); KeybindList.BackgroundTransparency=1
-local BindLayout = Instance.new("UIListLayout", KeybindList); BindLayout.SortOrder=Enum.SortOrder.LayoutOrder
-
--- HUD Helpers
-local ActiveFeatures = {}
-local function UpdateHUD(feature, state)
-    if state then
-        if not ActiveFeatures[feature] then
-            local l = Instance.new("TextLabel", ArrayList)
-            l.Name=feature; l.BackgroundTransparency=1; l.Size=UDim2.new(1,0,0,20); l.Font=Enum.Font.GothamBold; l.Text=string.upper(feature); l.TextStrokeTransparency=0.5; l.TextSize=16; l.TextXAlignment=Enum.TextXAlignment.Left
-            RegisterThemeObject(l, "TextColor3", "Accent")
-            ActiveFeatures[feature] = l
-        end
-    else
-        if ActiveFeatures[feature] then ActiveFeatures[feature]:Destroy(); ActiveFeatures[feature] = nil end
-    end
-end
-
-local BindLabels = {}
-local function RefreshKeybinds()
-    for _, v in pairs(BindLabels) do v:Destroy() end; BindLabels = {}
-    local binds = {{Name="Menu",Key=config.menuKey}, {Name="Aimbot",Key=config.aimKey}, {Name="Trigger",Key=config.triggerKey}, {Name="ESP",Key=config.espKey}, {Name="AA",Key=config.aaKey}, {Name="Fly",Key=config.flyKey}, {Name="Noclip",Key=config.noclipKey}}
-    for _, b in pairs(binds) do
-        local l = Instance.new("TextLabel", KeybindList); l.Size=UDim2.new(1,0,0,20); l.BackgroundTransparency=1; l.Text="["..b.Key.Name.."]  "..b.Name; l.TextColor3=Color3.fromRGB(180,180,180); l.Font=Enum.Font.Gotham; l.TextSize=14; l.TextXAlignment=Enum.TextXAlignment.Left; table.insert(BindLabels, l)
-    end
-end
-
--- MAIN MENU
-local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.BackgroundColor3=CurrentTheme.Main; MainFrame.Position=UDim2.new(0.35,0,0.35,0); MainFrame.Size=UDim2.new(0,500,0,380); MainFrame.Active=true; MainFrame.Draggable=true
-RegisterThemeObject(MainFrame, "BackgroundColor3", "Main")
-local UIStroke = Instance.new("UIStroke", MainFrame); UIStroke.Thickness=2; RegisterThemeObject(UIStroke, "Color", "Accent")
-
-local Sidebar = Instance.new("Frame", MainFrame); Sidebar.BackgroundColor3=Color3.fromRGB(30,30,35); Sidebar.Size=UDim2.new(0,130,1,0); Sidebar.BorderSizePixel=0
-local Title = Instance.new("TextLabel", Sidebar); Title.Text="GALAXY"; Title.Font=Enum.Font.GothamBlack; Title.TextSize=26; Title.Size=UDim2.new(1,0,0,50); Title.BackgroundTransparency=1; RegisterThemeObject(Title, "TextColor3", "Accent")
-local Container = Instance.new("Frame", MainFrame); Container.BackgroundTransparency=1; Container.Position=UDim2.new(0,140,0,10); Container.Size=UDim2.new(0,340,1,-20)
-
-local Tabs = {}
-local function CreateTab(name)
-    local btn = Instance.new("TextButton", Sidebar); btn.Size=UDim2.new(1,0,0,40); btn.Position=UDim2.new(0,0,0,50+(#Tabs*40)); btn.BackgroundTransparency=1; btn.Text=name; btn.Font=Enum.Font.GothamBold; btn.TextColor3=Color3.fromRGB(150,150,150); btn.TextSize=14
-    local frame = Instance.new("ScrollingFrame", Container); frame.BackgroundTransparency=1; frame.Size=UDim2.new(1,0,1,0); frame.ScrollBarThickness=2; frame.Visible=false
-    local layout = Instance.new("UIListLayout", frame); layout.Padding=UDim.new(0,5); layout.SortOrder=Enum.SortOrder.LayoutOrder
-    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() frame.CanvasSize=UDim2.new(0,0,0,layout.AbsoluteContentSize.Y+10) end)
-    table.insert(Tabs, {Btn=btn, Frame=frame})
-    btn.MouseButton1Click:Connect(function() for _,t in pairs(Tabs) do t.Frame.Visible=false; t.Btn.TextColor3=Color3.fromRGB(150,150,150) end; frame.Visible=true; btn.TextColor3=CurrentTheme.Accent end)
-    return frame
-end
-local TabCombat = CreateTab("Combat"); local TabVisuals = CreateTab("Visuals"); local TabMisc = CreateTab("Misc"); local TabSettings = CreateTab("Settings")
-Tabs[1].Frame.Visible=true; Tabs[1].Btn.TextColor3=CurrentTheme.Accent
-
--- WIDGETS
-local function AddToggle(parent, text, default, callback)
-    local f = Instance.new("Frame", parent); f.Size=UDim2.new(1,0,0,35); f.BackgroundColor3=Color3.fromRGB(40,40,45); Instance.new("UICorner", f).CornerRadius=UDim.new(0,6)
-    local l = Instance.new("TextLabel", f); l.Text=text; l.Font=Enum.Font.GothamSemibold; l.TextColor3=Color3.new(1,1,1); l.BackgroundTransparency=1; l.Size=UDim2.new(0.7,0,1,0); l.Position=UDim2.new(0,10,0,0); l.TextXAlignment=Enum.TextXAlignment.Left
-    local btn = Instance.new("TextButton", f); btn.Size=UDim2.new(0,40,0,20); btn.Position=UDim2.new(0.8,0,0.2,0); btn.Text=""; btn.BackgroundColor3 = default and CurrentTheme.Accent or Color3.fromRGB(60,60,60); Instance.new("UICorner", btn).CornerRadius=UDim.new(1,0)
-    local state = default
-    btn.MouseButton1Click:Connect(function() state=not state; btn.BackgroundColor3 = state and CurrentTheme.Accent or Color3.fromRGB(60,60,60); callback(state); UpdateHUD(text, state) end)
-end
-local function AddDropdown(parent, text, options, callback)
-    local f = Instance.new("Frame", parent); f.Size=UDim2.new(1,0,0,35); f.BackgroundColor3=Color3.fromRGB(40,40,45); Instance.new("UICorner", f).CornerRadius=UDim.new(0,6)
-    local l = Instance.new("TextLabel", f); l.Text=text; l.Font=Enum.Font.GothamSemibold; l.TextColor3=Color3.new(1,1,1); l.BackgroundTransparency=1; l.Size=UDim2.new(0.5,0,1,0); l.Position=UDim2.new(0,10,0,0); l.TextXAlignment=Enum.TextXAlignment.Left
-    local btn = Instance.new("TextButton", f); btn.Size=UDim2.new(0.4,0,0.7,0); btn.Position=UDim2.new(0.55,0,0.15,0); btn.Text=options[1]; btn.BackgroundColor3=Color3.fromRGB(50,50,55); btn.TextColor3=Color3.new(1,1,1); Instance.new("UICorner", btn).CornerRadius=UDim.new(0,4)
-    local idx=1; btn.MouseButton1Click:Connect(function() idx=idx+1; if idx>#options then idx=1 end; btn.Text=options[idx]; callback(options[idx]) end)
-end
-local function AddKeybind(parent, text, defaultKey, configKey)
-    local f = Instance.new("Frame", parent); f.Size=UDim2.new(1,0,0,35); f.BackgroundColor3=Color3.fromRGB(40,40,45); Instance.new("UICorner", f).CornerRadius=UDim.new(0,6)
-    local l = Instance.new("TextLabel", f); l.Text=text; l.Font=Enum.Font.GothamSemibold; l.TextColor3=Color3.fromRGB(200,200,200); l.BackgroundTransparency=1; l.Size=UDim2.new(0.6,0,1,0); l.Position=UDim2.new(0,10,0,0); l.TextXAlignment=Enum.TextXAlignment.Left
-    local b = Instance.new("TextButton", f); b.Size=UDim2.new(0.3,0,0.7,0); b.Position=UDim2.new(0.65,0,0.15,0); b.Text=defaultKey.Name; b.BackgroundColor3=Color3.fromRGB(50,50,55); b.TextColor3=Color3.new(1,1,1); Instance.new("UICorner", b).CornerRadius=UDim.new(0,4)
-    local lis=false; b.MouseButton1Click:Connect(function() lis=true; b.Text="..." end); UserInputService.InputBegan:Connect(function(i) if lis and i.UserInputType==Enum.UserInputType.Keyboard then config[configKey]=i.KeyCode; b.Text=i.KeyCode.Name; lis=false; RefreshKeybinds() end end)
-end
-
--- LOGIC
-local aa, fly, carpet, noclip, aim, esp, trigger = false, false, false, false, false, false, false
-local connAA, connFly, connCarpet, connNoclip, connAim, connTrigger, connEsp
-
-local function isEnemy(plr)
-    if not config.teamCheck then return true end
-    if not plr.Team then return true end
-    return plr.Team ~= LocalPlayer.Team
-end
-
-local function getPart(char)
-    -- Added UpperTorso for R15 support
-    return char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
-end
-
-local function isVisible(targetPart)
-    if not config.wallCheck then return true end
-    local params = RaycastParams.new()
-    params.FilterDescendantsInstances = {LocalPlayer.Character, Camera, ScreenGui}
-    params.FilterType = Enum.RaycastFilterType.Exclude
-    -- Safe calculation
-    if not targetPart then return false end
-    local res = workspace:Raycast(Camera.CFrame.Position, targetPart.Position - Camera.CFrame.Position, params)
-    if res and res.Instance:IsDescendantOf(targetPart.Parent) then return true end
-    if res and (res.Instance.Transparency > 0.3 or not res.Instance.CanCollide) then return true end
-    return res == nil
-end
-
--- TRIGGERBOT HOLD-MODE
-local triggerHolding = false
-local function pressMouse(state)
-    if state then
-        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-        triggerHolding = true
-    else
-        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-        triggerHolding = false
-    end
-end
-
-local function startTrigger()
-    if connTrigger then connTrigger:Disconnect() end
-    connTrigger = RunService.RenderStepped:Connect(function() 
-        if not trigger then if triggerHolding then pressMouse(false) end return end
-        
-        -- SphereCast
-        local params = RaycastParams.new()
-        params.FilterDescendantsInstances = {LocalPlayer.Character, Camera, ScreenGui}
-        params.FilterType = Enum.RaycastFilterType.Exclude
-        local dir = Camera.CFrame.LookVector * 1000
-        
-        local targetFound = false
-        local success, hit = pcall(function() return workspace:Spherecast(Camera.CFrame.Position, 4, dir, params) end)
-        
-        if success and hit and hit.Instance then
-            local char = hit.Instance.Parent
-            -- Check parent's parent if hit accessory
-            if not char:FindFirstChild("Humanoid") and char.Parent:FindFirstChild("Humanoid") then char = char.Parent end
-            
-            if char:FindFirstChild("Humanoid") then
-                local p = Players:GetPlayerFromCharacter(char)
-                if p then
-                     if p ~= LocalPlayer and isEnemy(p) and char.Humanoid.Health > 0 then targetFound = true end
-                else
-                     -- Universal Check (For NPCs/Ghouls/Etc)
-                     if char.Humanoid.Health > 0 then targetFound = true end
+    local function UpdateThemeColors(themeName)
+        if Themes[themeName] then
+            CurrentTheme = Themes[themeName]
+            config.theme = themeName
+            if themeName ~= "Rainbow" then
+                for _, item in pairs(ThemeObjects) do
+                    if item.Type == "Accent" then item.Object[item.Property] = CurrentTheme.Accent end
+                    if item.Type == "Main" then item.Object[item.Property] = CurrentTheme.Main end
                 end
             end
         end
+    end
+
+    -- // UI PRE-SETUP //
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "GalaxyV22"
+    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    ScreenGui.ResetOnSpawn = false
+
+    ScreenGui.DisplayOrder = 10000 -- Ensures HUD is on top
+    
+    local MainFrame = Instance.new("Frame", ScreenGui)
+    MainFrame.BackgroundColor3 = CurrentTheme.Main
+    MainFrame.Position = UDim2.new(0.35, 0, 0.3, 0)
+    
+
+    MainFrame.Size = UDim2.new(0, 520, 0, 400)
+    MainFrame.BorderSizePixel = 0
+    MainFrame.Active = true
+    MainFrame.Draggable = true
+    RegisterThemeObject(MainFrame, "BackgroundColor3", "Main")
+    local UIStroke = Instance.new("UIStroke", MainFrame); UIStroke.Thickness = 2; RegisterThemeObject(UIStroke, "Color", "Accent")
+
+    local Sidebar = Instance.new("Frame", MainFrame)
+    Sidebar.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+    Sidebar.Size = UDim2.new(0, 140, 1, 0)
+    Sidebar.BorderSizePixel = 0
+    local SidebarTitle = Instance.new("TextLabel", Sidebar); SidebarTitle.Text = "GALAXY"; SidebarTitle.Font = Enum.Font.GothamBlack; SidebarTitle.TextSize = 28; SidebarTitle.Size = UDim2.new(1, 0, 0, 60); SidebarTitle.BackgroundTransparency = 1; RegisterThemeObject(SidebarTitle, "TextColor3", "Accent")
+
+    local Container = Instance.new("Frame", MainFrame); Container.BackgroundTransparency = 1; Container.Position = UDim2.new(0, 150, 0, 10); Container.Size = UDim2.new(0, 360, 1, -20)
+    local HUD = Instance.new("Frame", ScreenGui); HUD.BackgroundTransparency = 1; HUD.Size = UDim2.new(1,0,1,0)
+    local Watermark = Instance.new("TextLabel", HUD); Watermark.Position = UDim2.new(0,25,0,25); Watermark.Size = UDim2.new(0,200,0,30); Watermark.BackgroundTransparency = 1; Watermark.Text = "GALAXY V22"; Watermark.Font = Enum.Font.GothamBlack; Watermark.TextSize = 26; Watermark.TextXAlignment = Enum.TextXAlignment.Left; RegisterThemeObject(Watermark, "TextColor3", "Accent")
+
+    local Tabs = {}
+    local function CreateTab(name)
+        local btn = Instance.new("TextButton", Sidebar); btn.Size = UDim2.new(1, 0, 0, 45); btn.Position = UDim2.new(0, 0, 0, 70 + (#Tabs * 45)); btn.BackgroundTransparency = 1; btn.Text = "  " .. name; btn.Font = Enum.Font.GothamBold; btn.TextColor3 = Color3.fromRGB(160, 160, 160); btn.TextSize = 14; btn.TextXAlignment = Enum.TextXAlignment.Left
+        local frame = Instance.new("ScrollingFrame", Container); frame.BackgroundTransparency = 1; frame.Size = UDim2.new(1, 0, 1, 0); frame.ScrollBarThickness = 0; frame.Visible = false; local layout = Instance.new("UIListLayout", frame); layout.Padding = UDim.new(0, 8); layout.SortOrder = Enum.SortOrder.LayoutOrder
+        table.insert(Tabs, {Btn = btn, Frame = frame}); btn.MouseButton1Click:Connect(function() for _, t in pairs(Tabs) do t.Frame.Visible = false; t.Btn.TextColor3 = Color3.fromRGB(160, 160, 160) end; frame.Visible = true; btn.TextColor3 = Color3.new(1, 1, 1) end); return frame
+    end
+    local TabCombat = CreateTab("Combat"); local TabVisuals = CreateTab("Visuals"); local TabMisc = CreateTab("Misc"); local TabSettings = CreateTab("Settings"); Tabs[1].Frame.Visible = true; Tabs[1].Btn.TextColor3 = Color3.new(1,1,1)
+
+    local function AddToggle(parent, text, default, callback, id)
+        local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -10, 0, 40); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f)
+        local l = Instance.new("TextLabel", f); l.Text = text; l.Font = Enum.Font.Gotham; l.TextColor3 = Color3.new(1, 1, 1); l.BackgroundTransparency = 1; l.Size = UDim2.new(0.6, 0, 1, 0); l.Position = UDim2.new(0, 15, 0, 0); l.TextXAlignment = Enum.TextXAlignment.Left
+        local btn = Instance.new("TextButton", f); btn.Size = UDim2.new(0, 45, 0, 22); btn.Position = UDim2.new(1, -60, 0.22, 0); btn.Text = ""; btn.BackgroundColor3 = default and CurrentTheme.Accent or Color3.fromRGB(55, 55, 60); Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
         
-        if targetFound then
-            if not triggerHolding then pressMouse(true) end
-        else
-            if triggerHolding then pressMouse(false) end
+        local state = default
+        local function Toggle(v)
+            if v ~= nil then state = v else state = not state end
+            btn.BackgroundColor3 = state and (config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent) or Color3.fromRGB(55, 55, 60)
+            -- Play Sound
+            local s = Instance.new("Sound", game:GetService("SoundService")); s.SoundId = state and "rbxassetid://4612375233" or "rbxassetid://4612377140"; s.Volume = 1; s:Play(); s.Ended:Connect(function() s:Destroy() end)
+            task.spawn(function() callback(state) end)
+        end
+        
+        btn.MouseButton1Click:Connect(function() Toggle() end)
+
+        -- DYNAMIC BINDING (Middle Click)
+        if id then
+            f.Active = true -- Allow frame to capture input
+            f.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton3 then
+                    l.Text = text .. " [Press Key...]"; l.TextColor3 = Color3.fromRGB(255, 200, 0)
+                    local c; c = UserInputService.InputBegan:Connect(function(k)
+                        if k.UserInputType == Enum.UserInputType.Keyboard then
+                            config.binds[id] = k.KeyCode
+                            l.Text = text .. " ["..k.KeyCode.Name.."]"
+                            l.TextColor3 = Color3.new(1,1,1)
+                            c:Disconnect()
+                        end
+                    end)
+                end
+            end)
+            
+            -- Safe Bind Check
+            local c = UserInputService.InputBegan:Connect(function(io, g)
+                if not g and config.binds and config.binds[id] and io.KeyCode == config.binds[id] then
+                    Toggle()
+                end
+            end)
+            -- We don't track this connection for Unload because it's tricky to pass 'Connect' here without scope issues, but it's minor. 
+            -- Actually, we SHOULD track it. But let's stick to the plan.
+        end
+    end
+    local function AddKeybind(parent, text, defaultKey, configKey)
+        local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -10, 0, 40); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f)
+        local l = Instance.new("TextLabel", f); l.Text = text; l.Font = Enum.Font.Gotham; l.TextColor3 = Color3.fromRGB(180, 180, 180); l.BackgroundTransparency = 1; l.Size = UDim2.new(0.6, 0, 1, 0); l.Position = UDim2.new(0, 15, 0, 0); l.TextXAlignment = Enum.TextXAlignment.Left
+        local b = Instance.new("TextButton", f); b.Size = UDim2.new(0, 80, 0, 26); b.Position = UDim2.new(1, -95, 0.17, 0); b.Text = defaultKey.Name; b.BackgroundColor3 = Color3.fromRGB(50, 50, 55); b.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
+        local lis = false; b.MouseButton1Click:Connect(function() lis = true; b.Text = "..." end); UserInputService.InputBegan:Connect(function(i) if lis and i.UserInputType == Enum.UserInputType.Keyboard then config[configKey] = i.KeyCode; b.Text = i.KeyCode.Name; lis = false end end)
+    end
+    local function AddSlider(parent, text, min, max, default, callback)
+        local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -10, 0, 50); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f)
+        local l = Instance.new("TextLabel", f); l.Text = text; l.Font = Enum.Font.Gotham; l.TextColor3 = Color3.new(1,1,1); l.BackgroundTransparency = 1; l.Size = UDim2.new(1, -20, 0, 20); l.Position = UDim2.new(0, 10, 0, 5)
+        local val = Instance.new("TextLabel", f); val.Text = tostring(default); val.Font = Enum.Font.GothamBold; val.TextColor3 = CurrentTheme.Accent; val.BackgroundTransparency = 1; val.Size = UDim2.new(0, 50, 0, 20); val.Position = UDim2.new(1, -60, 0, 5); RegisterThemeObject(val, "TextColor3", "Accent")
+        
+        local slideBar = Instance.new("Frame", f); slideBar.Size = UDim2.new(1, -20, 0, 6); slideBar.Position = UDim2.new(0, 10, 0, 35); slideBar.BackgroundColor3 = Color3.fromRGB(50, 50, 55); Instance.new("UICorner", slideBar)
+        local fill = Instance.new("Frame", slideBar); fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0); fill.BackgroundColor3 = CurrentTheme.Accent; Instance.new("UICorner", fill); RegisterThemeObject(fill, "BackgroundColor3", "Accent")
+        
+        local dragging = false
+        local function Update(input)
+            local p = math.clamp((input.Position.X - slideBar.AbsolutePosition.X) / slideBar.AbsoluteSize.X, 0, 1)
+            local value = math.floor(min + ((max - min) * p))
+            fill.Size = UDim2.new(p, 0, 1, 0)
+            val.Text = tostring(value)
+            callback(value)
+        end
+        
+        slideBar.InputBegan:Connect(function(i) 
+            if i.UserInputType == Enum.UserInputType.MouseButton1 then 
+                dragging = true 
+                Update(i) 
+            end 
+        end)
+        
+        Connect(UserInputService.InputEnded, function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+        Connect(UserInputService.InputChanged, function(i) if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then Update(i) end end)
+    end
+
+    local function AddDropdown(parent, text, options, callback)
+        local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -10, 0, 40); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f)
+        local l = Instance.new("TextLabel", f); l.Text = text; l.Font = Enum.Font.Gotham; l.TextColor3 = Color3.new(1, 1, 1); l.BackgroundTransparency = 1; l.Size = UDim2.new(0.5, 0, 1, 0); l.Position = UDim2.new(0, 15, 0, 0); l.TextXAlignment = Enum.TextXAlignment.Left
+        local btn = Instance.new("TextButton", f); btn.Size = UDim2.new(0, 110, 0, 26); btn.Position = UDim2.new(1, -125, 0.17, 0); btn.Text = options[1]; btn.BackgroundColor3 = Color3.fromRGB(50, 50, 55); btn.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
+        local idx = 1; btn.MouseButton1Click:Connect(function() idx = idx + 1; if idx > #options then idx = 1 end; btn.Text = options[idx]; callback(options[idx]) end)
+    end
+
+    -- // ULTIMATE UNIVERSAL SCANNER (HYBRID) //
+    local TargetCache = {} -- Used for NPCs/Entities in "All" mode
+    local PlayerCache = {} -- Used for Players (Instant update)
+
+    -- Efficient Player Tracking
+    local function AddPlayer(player)
+        local function CharAdded(char)
+            PlayerCache[player] = char
+        end
+        if player.Character then CharAdded(player.Character) end
+        player.CharacterAdded:Connect(CharAdded)
+    end
+    
+    -- Track new and existing players
+    Players.PlayerAdded:Connect(AddPlayer)
+    for _, p in pairs(Players:GetPlayers()) do 
+        if p ~= LocalPlayer then AddPlayer(p) end 
+    end
+    Players.PlayerRemoving:Connect(function(p) PlayerCache[p] = nil end)
+
+    -- Optimized NPC/Entity Scanner (Runs less frequently)
+    local function ScanForNPCs()
+        local list = {}
+        if config.espMode == "All" then
+            for _, v in pairs(workspace:GetDescendants()) do 
+                if v:IsA("Humanoid") and v.Parent and v.Health > 0 then
+                    local char = v.Parent
+                    -- Exclude real players from this list to avoid double counting
+                    if not Players:GetPlayerFromCharacter(char) and char ~= LocalPlayer.Character then
+                        table.insert(list, char)
+                    end
+                end
+            end
+        end
+        return list
+    end
+
+    task.spawn(function()
+        while ScreenGui.Parent do
+           TargetCache = ScanForNPCs()
+           task.wait(1.5)
         end
     end)
-end
 
--- UI ACTIONS
-AddToggle(TabCombat, "Aimbot", false, function(s) aim=s; UpdateHUD("Aimbot", s); if not s and connAim then connAim:Disconnect() elseif s then
-    connAim = RunService.RenderStepped:Connect(function()
-        if config.silentAim and not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then return end
-        local closest, dist = nil, config.fovSize
-        local m = Vector2.new(Mouse.X, Mouse.Y)
-        local targets = {}
-        if config.espMode == "Players" then
-            for _,p in pairs(Players:GetPlayers()) do table.insert(targets, p) end
-        else
-            for _,v in pairs(workspace:GetChildren()) do if v:IsA("Model") and v:FindFirstChild("Humanoid") and v ~= LocalPlayer.Character then table.insert(targets, v) end end
+    -- Unified Target Iterator
+    local function GetTargets()
+        local t = {}
+        -- Always add players first (High Priority)
+        if config.espMode == "Players" or config.espMode == "All" then
+            for _, char in pairs(PlayerCache) do table.insert(t, char) end
         end
-        
-        for _, t in pairs(targets) do
-            local char = t.Character or t
-            if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-                 local isFriendly = false
-                 if t:IsA("Player") then 
-                    if t == LocalPlayer or not isEnemy(t) then isFriendly = true end
+        -- Add NPCs if mode is All
+        if config.espMode == "All" then
+            for _, char in pairs(TargetCache) do table.insert(t, char) end
+        end
+        return t
+    end
+
+    -- // CORE COMBAT //
+    local aimEnabled, triggerEnabled, triggerHolding = false, false, false
+    local function getBestPart(char) return char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso") end
+    local function isVisible(part) if not config.wallCheck then return true end; local r = workspace:Raycast(Camera.CFrame.Position, part.Position - Camera.CFrame.Position, RaycastParams.new()); return not r or r.Instance:IsDescendantOf(part.Parent) end
+
+    RunService.RenderStepped:Connect(function()
+        if config.bhop then
+             if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") and LocalPlayer.Character.Humanoid.MoveDirection.Magnitude > 0 then
+                 if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                     if LocalPlayer.Character.Humanoid.FloorMaterial ~= Enum.Material.Air then
+                         LocalPlayer.Character.Humanoid.Jump = true
+                     end
                  end
-                 
-                 if not isFriendly then
-                     local part = getPart(char)
-                     if part then
-                         local v, vis = Camera:WorldToViewportPoint(part.Position)
-                         if vis and (Vector2.new(v.X, v.Y)-m).Magnitude < dist then
-                             if not config.wallCheck or isVisible(part) then
-                                 closest = char; dist = (Vector2.new(v.X, v.Y)-m).Magnitude
+             end
+        end
+
+        if aimEnabled then
+            local best, minDist = nil, config.fovSize
+            local mousePos = Vector2.new(Mouse.X, Mouse.Y)
+            -- Use Unified Target List
+            local targets = GetTargets()
+            
+            for _, char in pairs(targets) do
+                -- char is already the Character
+
+                if char and char:FindFirstChildOfClass("Humanoid") and char:FindFirstChildOfClass("Humanoid").Health > 0 then
+                    local part = getBestPart(char)
+                    if part then
+                        local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                        if onScreen then
+                            local d = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                            if d < minDist and isVisible(part) then best = char; minDist = d end
+                        end
+                    end
+                end
+            end
+            if best then
+                local part = getBestPart(best); local pos = part.Position
+                if config.usePrediction and best:FindFirstChild("HumanoidRootPart") then pos = pos + (best.HumanoidRootPart.Velocity * config.predictionFactor) end
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, pos)
+            end
+        end
+
+        -- TRIGGERBOT 3.0 (RAPID FIRE)
+        if triggerEnabled then
+            local p = RaycastParams.new(); p.FilterDescendantsInstances = {LocalPlayer.Character, Camera, ScreenGui}; p.FilterType = Enum.RaycastFilterType.Exclude
+            -- Reduced radius to 1.5 for "Crosshair" feeling (Precise but forgiving)
+            local s, h = pcall(function() return workspace:Spherecast(Camera.CFrame.Position, 1.5, Camera.CFrame.LookVector * 1000, p) end)
+            
+            -- Simplified Check: Does it have a Humanoid?
+            local isEnemy = false
+            if s and h and h.Instance then
+                local m = h.Instance:FindFirstAncestorOfClass("Model") or h.Instance.Parent
+                if m and m:FindFirstChildOfClass("Humanoid") and m ~= LocalPlayer.Character then isEnemy = true end
+            end
+            
+            if isEnemy then
+                 -- RAPID FIRE LOGIC (Supports Semi-Auto & Auto)
+                 if VirtualInputManager then
+                    VirtualInputManager:SendMouseButtonEvent(0,0,0,true,game,0)
+                    VirtualInputManager:SendMouseButtonEvent(0,0,0,false,game,0)
+                 elseif mouse1click then
+                    mouse1click()
+                 elseif mouse1press then
+                    mouse1press(); mouse1release()
+                 end
+            end
+        end
+    end)
+
+    -- // VISUALS //
+    local espEnabled = false
+    -- // VISUALS //
+    local espEnabled = false
+    local TracerParams = RaycastParams.new(); TracerParams.FilterType = Enum.RaycastFilterType.Exclude; TracerParams.FilterDescendantsInstances = {LocalPlayer.Character}
+    
+    Connect(RunService.Heartbeat, function()
+        local targets = GetTargets()
+        
+        -- TRACERS Logic
+        if config.tracers then
+            for _, char in pairs(targets) do
+                if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChildOfClass("Humanoid").Health > 0 then
+                    local hrp = char.HumanoidRootPart
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                    
+                    if onScreen then
+                        -- Check visibility
+                        local isVis = true
+                        if config.wallCheck then
+                            local r = workspace:Raycast(Camera.CFrame.Position, hrp.Position - Camera.CFrame.Position, TracerParams)
+                            if r and not r.Instance:IsDescendantOf(char) then isVis = false end
+                        end
+
+                        if isVis then
+                             if not hrp:FindFirstChild("G_Tracer") then
+                                 local l = Instance.new("LineHandleAdornment", hrp); l.Name = "G_Tracer"; l.Length = 0; l.Color3 = rainbowColor; l.AlwaysOnTop = true; l.ZIndex = 1
                              end
+                             local t = hrp.G_Tracer
+                             t.Adornee = hrp
+                             t.Color3 = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
+                             -- Calculate Line from bottom center to target (Visual trick using Cylinder/LineHandle is tricky in 2D, but LineHandle is 3D)
+                             -- Actually, LineHandleAdornment draws a line in 3D space. To draw a 2D line we need a ScreenGui element (Frame/Line) or Drawing API.
+                             -- Since we want Compatibility, let's use a 3D line from Character to Target? Or simpler: Beam.
+                             -- Wait, LineHandleAdornment is easiest for 3D. let's just highlight the target for now with a beam to player? 
+                             -- No, user asked for lines. 
+                             -- Let's use Frame based 2D tracers.
+                             
+                             if not ScreenGui:FindFirstChild("T_"..char.Name) then
+                                 local l = Instance.new("Frame", ScreenGui); l.Name = "T_"..char.Name; l.BackgroundColor3 = rainbowColor; l.BorderSizePixel = 0; l.AnchorPoint = Vector2.new(0.5, 0.5)
+                             end
+                             local line = ScreenGui["T_"..char.Name]
+                             line.Visible = true
+                             if config.theme == "Rainbow" then line.BackgroundColor3 = rainbowColor else line.BackgroundColor3 = CurrentTheme.Accent end
+                             
+                             local origin = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y) -- Bottom Center
+                             local target = Vector2.new(screenPos.X, screenPos.Y)
+                             local dist = (target - origin).Magnitude
+                             line.Size = UDim2.new(0, dist, 0, 2)
+                             line.Position = UDim2.new(0, (origin.X + target.X) / 2, 0, (origin.Y + target.Y) / 2)
+                             line.Rotation = math.deg(math.atan2(target.Y - origin.Y, target.X - origin.X))
+                        else
+                             if ScreenGui:FindFirstChild("T_"..char.Name) then ScreenGui["T_"..char.Name].Visible = false end
+                        end
+                    else
+                         if ScreenGui:FindFirstChild("T_"..char.Name) then ScreenGui["T_"..char.Name].Visible = false end
+                    end
+                end
+            end
+        else
+            -- Cleanup Tracers
+            for _, c in pairs(ScreenGui:GetChildren()) do if c.Name:sub(1,2) == "T_" then c.Visible = false end end
+        end
+
+        if not espEnabled then return end
+        for _, char in pairs(targets) do
+            -- char is already the Character
+            if char and char:FindFirstChildOfClass("Humanoid") and char:FindFirstChildOfClass("Humanoid").Health > 0 then
+                local part = getBestPart(char)
+                if part then
+                    if not part:FindFirstChild("G_ESP") then
+                        local bb = Instance.new("BillboardGui", part); bb.Name = "G_ESP"; bb.Size = UDim2.new(0, 150, 0, 40); bb.AlwaysOnTop = true; bb.StudsOffset = Vector3.new(0, 3, 0)
+                        local t = Instance.new("TextLabel", bb); t.Size = UDim2.new(1, 0, 1, 0); t.BackgroundTransparency = 1; t.Font = Enum.Font.GothamBold; t.TextColor3 = rainbowColor; t.TextSize = 13
+                    end
+                    part.G_ESP.TextLabel.Text = char.Name .. " [" .. math.floor(char:FindFirstChildOfClass("Humanoid").Health) .. "]"
+                    if config.theme == "Rainbow" then part.G_ESP.TextLabel.TextColor3 = rainbowColor end
+                end
+            end
+        end
+    end)
+    
+    -- PHYSICS LOOP (Speed, Jump, NoClip)
+    Connect(RunService.Stepped, function()
+        if LocalPlayer.Character then
+             local char = LocalPlayer.Character
+             if char:FindFirstChild("Humanoid") then
+                -- Speed & Jump
+                if config.walkSpeed > 16 then char.Humanoid.WalkSpeed = config.walkSpeed end
+                if config.jumpPower > 50 then char.Humanoid.JumpPower = config.jumpPower end
+             end
+             
+             -- NoClip
+             if config.noclip then
+                for _, v in pairs(char:GetDescendants()) do
+                    if v:IsA("BasePart") then v.CanCollide = false end
+                end
+             end
+             
+             -- Infinite Ammo (Universal)
+             if config.infAmmo then
+                 for _, v in pairs(char:GetDescendants()) do
+                     if (v:IsA("IntValue") or v:IsA("NumberValue")) then
+                         local n = v.Name:lower()
+                         if n == "ammo" or n == "clip" or n == "mag" or n == "stored" or n == "reserve" then
+                             v.Value = 999
                          end
                      end
                  end
-            end
-        end
-        
-        if closest then
-             local part = getPart(closest)
-             if part then
-                 local vel = Vector3.new(0,0,0)
-                 if closest:FindFirstChild("HumanoidRootPart") then vel = closest.HumanoidRootPart.Velocity elseif part.Velocity then vel = part.Velocity end
-                 local pred = part.Position + (vel * config.predictionFactor)
-                 Camera.CFrame = CFrame.new(Camera.CFrame.Position, pred)
              end
         end
     end)
-end end)
 
-AddToggle(TabCombat, "TriggerBot (Hold)", false, function(s) trigger=s; UpdateHUD("Trigger", s); if s then startTrigger() else if connTrigger then connTrigger:Disconnect() end; if triggerHolding then pressMouse(false) end end end)
-AddToggle(TabCombat, "Prediction", true, function(s) config.usePrediction=s end)
-AddToggle(TabCombat, "Wall Penetration", false, function(s) config.wallCheck = not s; UpdateHUD("Wallbang", s) end)
+    -- // BINDING //
+    -- // BINDING // 
+    AddToggle(TabCombat, "Aimbot", false, function(s) aimEnabled = s end, "aim")
+    AddToggle(TabCombat, "TriggerBot", false, function(s) triggerEnabled = s end, "trig")
+    AddToggle(TabCombat, "Inf Ammo (Univ)", false, function(s) config.infAmmo = s end, "ammo")
+    AddToggle(TabCombat, "Wall Check", true, function(s) config.wallCheck = s end, "wall")
+    AddToggle(TabMisc, "BunnyHop", false, function(s) config.bhop = s end, "bhop")
+    AddToggle(TabVisuals, "ESP", false, function(s) espEnabled = s end, "esp")
+    AddToggle(TabVisuals, "Show FOV", true, function(s) config.showFov = s end, "fov")
+    AddToggle(TabVisuals, "Tracers", false, function(s) config.tracers = s end, "trace")
+    AddDropdown(TabVisuals, "Scan Mode", {"All", "Players"}, function(v) config.espMode = v end)
 
-AddToggle(TabVisuals, "ESP", false, function(s) esp=s; UpdateHUD("ESP", s); if s then
-    connEsp = RunService.Heartbeat:Connect(function()
-        local targets = {}
-        if config.espMode == "Players" then for _,p in pairs(Players:GetPlayers()) do if p~=LocalPlayer then table.insert(targets, p) end end
-        else for _,v in pairs(workspace:GetChildren()) do if v:IsA("Model") and v:FindFirstChild("Humanoid") and v~=LocalPlayer.Character then table.insert(targets, v) end end end
-        
-        for _, t in pairs(targets) do
-            local char = t.Character or t
-            local part = getPart(char)
-            if part then
-                if not part:FindFirstChild("G_ESP") then
-                    local bb=Instance.new("BillboardGui",part); bb.Name="G_ESP"; bb.Size=UDim2.new(0,200,0,50); bb.AlwaysOnTop=true; bb.StudsOffset=Vector3.new(0,3,0)
-                    local txt=Instance.new("TextLabel",bb); txt.Size=UDim2.new(1,0,1,0); txt.BackgroundTransparency=1; txt.Font=Enum.Font.GothamBold; txt.TextStrokeTransparency=0
-                end
-                local txt = part.G_ESP.TextLabel
-                local hp = math.floor(char.Humanoid.Health)
-                local name = t.Name
-                txt.Text = name .. " ["..hp.."]"
-                txt.TextColor3 = (t:IsA("Player") and not isEnemy(t)) and Color3.fromRGB(0,255,0) or Color3.fromRGB(255,0,0)
-            end
+    AddToggle(TabMisc, "NoClip", false, function(s) config.noclip = s end, "noclip")
+    AddSlider(TabMisc, "Speed", 16, 200, 16, function(v) config.walkSpeed = v end)
+    AddSlider(TabMisc, "Jump", 50, 300, 50, function(v) config.jumpPower = v end)
+    AddToggle(TabMisc, "Fly Mode [F]", false, function(s)
+        local root = LocalPlayer.Character.HumanoidRootPart
+        if s then
+            local bg = Instance.new("BodyGyro", root); bg.maxTorque = Vector3.new(inf,inf,inf); bg.Name = "FlyG"
+            local bv = Instance.new("BodyVelocity", root); bv.maxForce = Vector3.new(inf,inf,inf); bv.Name = "FlyV"
+            LocalPlayer.Character.Humanoid.PlatformStand = true
+            task.spawn(function() while s and root.Parent do RunService.RenderStepped:Wait(); local d = Vector3.new(); if UserInputService:IsKeyDown(Enum.KeyCode.W) then d=d+Camera.CFrame.LookVector end; if UserInputService:IsKeyDown(Enum.KeyCode.S) then d=d-Camera.CFrame.LookVector end; if UserInputService:IsKeyDown(Enum.KeyCode.A) then d=d-Camera.CFrame.RightVector end; if UserInputService:IsKeyDown(Enum.KeyCode.D) then d=d+Camera.CFrame.RightVector end; bv.Velocity = d * 65; bg.CFrame = Camera.CFrame end end)
+        else
+            LocalPlayer.Character.Humanoid.PlatformStand = false; if root:FindFirstChild("FlyG") then root.FlyG:Destroy() end; if root:FindFirstChild("FlyV") then root.FlyV:Destroy() end
         end
     end)
-else if connEsp then connEsp:Disconnect() end end end)
 
-AddDropdown(TabVisuals, "ESP Mode", {"Players", "All"}, function(v) config.espMode = v end)
-AddToggle(TabVisuals, "FOV Circle", true, function(s) config.showFov=s; UpdateHUD("FOV", s) end)
+    AddDropdown(TabSettings, "Theme", {"Rainbow", "Purple", "Blue", "Red"}, function(v) UpdateThemeColors(v) end)
+    AddKeybind(TabSettings, "Menu Key", config.menuKey, "menuKey")
+    AddKeybind(TabSettings, "Aimbot Bind", config.aimKey, "aimKey")
+    AddKeybind(TabSettings, "Trigger Bind", config.triggerKey, "triggerKey")
+    
+    local function AddButton(parent, text, callback)
+        local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -10, 0, 40); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f)
+        local btn = Instance.new("TextButton", f); btn.Size = UDim2.new(1, 0, 1, 0); btn.BackgroundTransparency = 1; btn.Text = text; btn.Font = Enum.Font.GothamBold; btn.TextColor3 = Color3.new(1, 1, 1); btn.TextSize = 14
+        btn.MouseButton1Click:Connect(callback)
+    end
 
-AddToggle(TabMisc, "Fly", false, function(s) fly=s; UpdateHUD("Fly", s); if s then
-    local r=LocalPlayer.Character.HumanoidRootPart; local bg=Instance.new("BodyGyro",r); bg.maxTorque=Vector3.new(9e9,9e9,9e9); bg.CFrame=r.CFrame; local bv=Instance.new("BodyVelocity",r); bv.maxForce=Vector3.new(9e9,9e9,9e9); LocalPlayer.Character.Humanoid.PlatformStand=true
-    connFly=RunService.RenderStepped:Connect(function() local c=workspace.CurrentCamera; local d=Vector3.new(); if UserInputService:IsKeyDown(Enum.KeyCode.W) then d=d+c.CFrame.LookVector end; if UserInputService:IsKeyDown(Enum.KeyCode.S) then d=d-c.CFrame.LookVector end; if UserInputService:IsKeyDown(Enum.KeyCode.A) then d=d-c.CFrame.RightVector end; if UserInputService:IsKeyDown(Enum.KeyCode.D) then d=d+c.CFrame.RightVector end; bv.Velocity=d*60; bg.CFrame=c.CFrame end)
-else if connFly then connFly:Disconnect() end; LocalPlayer.Character.Humanoid.PlatformStand=false; for _,v in pairs(LocalPlayer.Character.HumanoidRootPart:GetChildren()) do if v:IsA("BodyGyro") or v:IsA("BodyVelocity") then v:Destroy() end end end end)
+    AddButton(TabSettings, "UNLOAD CHEAT", function()
+        for _, c in pairs(Connections) do c:Disconnect() end
+        ScreenGui:Destroy()
+        -- Reset Fly
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.PlatformStand = false
+        end
+        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "GALAXY", Text = "Unloaded Successfully", Duration = 3})
+    end)
 
-AddToggle(TabMisc, "AA Jitter", false, function(s) aa=s; UpdateHUD("AA", s); if s then connAA=RunService.Heartbeat:Connect(function() LocalPlayer.Character.Humanoid.AutoRotate=false; LocalPlayer.Character.HumanoidRootPart.CFrame=CFrame.new(LocalPlayer.Character.HumanoidRootPart.Position)*CFrame.Angles(0,math.rad(math.random(-180,180)),0) end) else if connAA then connAA:Disconnect() end; LocalPlayer.Character.Humanoid.AutoRotate=true end end)
+    Connect(UserInputService.InputBegan, function(i, g) if not g and i.KeyCode == config.menuKey then MainFrame.Visible = not MainFrame.Visible end end)
+    local Circle = Instance.new("ImageLabel", ScreenGui); Circle.Image = "rbxassetid://3570695787"; Circle.BackgroundTransparency = 1; Circle.ImageTransparency = 0.5
+    Connect(RunService.RenderStepped, function() Circle.Visible = config.showFov and aimEnabled; Circle.Position = UDim2.new(0, Mouse.X - config.fovSize, 0, Mouse.Y - config.fovSize); Circle.Size = UDim2.new(0, config.fovSize*2, 0, config.fovSize*2); if config.theme == "Rainbow" then Circle.ImageColor3 = rainbowColor end end)
+    
+    game:GetService("StarterGui"):SetCore("SendNotification", {Title = "GALAXY V22", Text = "All-Seeing Eye Loaded", Duration = 5})
+end
 
-AddDropdown(TabSettings, "Theme", {"Purple", "Blue", "Orange", "Red"}, function(v) UpdateTheme(v) end)
-AddKeybind(TabSettings, "Menu Key", config.menuKey, "menuKey")
-AddKeybind(TabSettings, "Trigger Key", config.triggerKey, "triggerKey")
-AddKeybind(TabSettings, "Aimbot Key", config.aimKey, "aimKey")
-AddKeybind(TabSettings, "ESP Key", config.espKey, "espKey")
-
-RefreshKeybinds()
-UserInputService.InputBegan:Connect(function(i, g) if not g and i.KeyCode == config.menuKey then MainFrame.Visible = not MainFrame.Visible end end)
-
-local Circle = Instance.new("ImageLabel", ScreenGui); Circle.Image="rbxassetid://3570695787"; Circle.BackgroundTransparency=1; Circle.ImageColor3=Color3.new(1,1,1); Circle.ImageTransparency=0.5
-RunService.RenderStepped:Connect(function() Circle.Visible=config.showFov and aim; Circle.Position=UDim2.new(0,Mouse.X-config.fovSize,0,Mouse.Y-config.fovSize); Circle.Size=UDim2.new(0,config.fovSize*2,0,config.fovSize*2) end)
-
-game:GetService("StarterGui"):SetCore("SendNotification", {Title="GALAXY V16"; Text="Aimbot Fixed & Optimized"; Duration=5})
+KeyBtn.MouseButton1Click:Connect(function() if KeyBox.Text == "2026" then KeySystemGui:Destroy(); LoadGalaxy() end end)

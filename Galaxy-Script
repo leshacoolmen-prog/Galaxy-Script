@@ -245,11 +245,31 @@ local function LoadGalaxy()
         end
     end
     local function AddKeybind(parent, text, defaultKey, configKey)
+        -- Legacy Keybind (Direct Config)
         local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -10, 0, 40); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f)
         local l = Instance.new("TextLabel", f); l.Text = text; l.Font = Enum.Font.Gotham; l.TextColor3 = Color3.fromRGB(180, 180, 180); l.BackgroundTransparency = 1; l.Size = UDim2.new(0.6, 0, 1, 0); l.Position = UDim2.new(0, 15, 0, 0); l.TextXAlignment = Enum.TextXAlignment.Left
         local b = Instance.new("TextButton", f); b.Size = UDim2.new(0, 80, 0, 26); b.Position = UDim2.new(1, -95, 0.17, 0); b.Text = defaultKey.Name; b.BackgroundColor3 = Color3.fromRGB(50, 50, 55); b.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
         local lis = false; b.MouseButton1Click:Connect(function() lis = true; b.Text = "..." end); UserInputService.InputBegan:Connect(function(i) if lis and i.UserInputType == Enum.UserInputType.Keyboard then config[configKey] = i.KeyCode; b.Text = i.KeyCode.Name; lis = false end end)
     end
+    
+    local function AddBind(parent, text, id)
+        -- New Binds System (config.binds)
+        local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -10, 0, 40); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f)
+        local l = Instance.new("TextLabel", f); l.Text = text; l.Font = Enum.Font.Gotham; l.TextColor3 = Color3.fromRGB(180, 180, 180); l.BackgroundTransparency = 1; l.Size = UDim2.new(0.6, 0, 1, 0); l.Position = UDim2.new(0, 15, 0, 0); l.TextXAlignment = Enum.TextXAlignment.Left
+        local b = Instance.new("TextButton", f); b.Size = UDim2.new(0, 80, 0, 26); b.Position = UDim2.new(1, -95, 0.17, 0); b.Text = "None"; b.BackgroundColor3 = Color3.fromRGB(50, 50, 55); b.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
+        
+        -- Load existing
+        if config.binds[id] then b.Text = config.binds[id].Name end
+        
+        local lis = false
+        b.MouseButton1Click:Connect(function() lis = true; b.Text = "..." end)
+        UserInputService.InputBegan:Connect(function(i) 
+            if lis and i.UserInputType == Enum.UserInputType.Keyboard then 
+                config.binds[id] = i.KeyCode; b.Text = i.KeyCode.Name; lis = false 
+            end 
+        end)
+    end
+
     local function AddSlider(parent, text, min, max, default, callback)
         local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -10, 0, 50); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f)
         local l = Instance.new("TextLabel", f); l.Text = text; l.Font = Enum.Font.Gotham; l.TextColor3 = Color3.new(1,1,1); l.BackgroundTransparency = 1; l.Size = UDim2.new(1, -20, 0, 20); l.Position = UDim2.new(0, 10, 0, 5)
@@ -597,14 +617,11 @@ local function LoadGalaxy()
             LocalPlayer.CameraMode = Enum.CameraMode.Classic
             LocalPlayer.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Zoom
             UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-            -- Block Right Click (Aim)
-            ContextActionService:BindAction("DisableAim", function() return Enum.ContextActionResult.Sink end, false, Enum.UserInputType.MouseButton2)
         else
             -- Disable Free Look
             LocalPlayer.CameraMinZoomDistance = 0.5
             LocalPlayer.CameraMaxZoomDistance = 400
             UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-            ContextActionService:UnbindAction("DisableAim")
         end
     end, "tp")
     AddSlider(TabMisc, "TP Dist", 10, 50, 20, function(v) config.thirdPersonDist = v end)

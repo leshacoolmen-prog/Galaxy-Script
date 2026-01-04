@@ -1,6 +1,8 @@
 local UserInputService = game:GetService("UserInputService")
 print("Galaxy: FIXED v3 LOADED")
 local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
+local ContextActionService = game:GetService("ContextActionService")
 local VirtualInputManager = nil
 pcall(function() VirtualInputManager = game:GetService("VirtualInputManager") end)
 print("Galaxy: Services Loaded")
@@ -106,7 +108,14 @@ local function LoadGalaxy()
         -- v6 Features
         antiAim = false,
         boxEsp = false,
-        keybindList = true
+        -- v6 Features
+        antiAim = false,
+        boxEsp = false,
+        keybindList = true,
+        
+        -- v7
+        thirdPerson = false,
+        thirdPersonDist = 20
     }
 
     -- // THEME ENGINE //
@@ -576,6 +585,25 @@ local function LoadGalaxy()
     KeyList.Visible = config.keybindList
     AddToggle(TabSettings, "Show Keybind List", true, function(s) KeyList.Visible = s end)
     AddSlider(TabMisc, "Jump", 50, 300, 50, function(v) config.jumpPower = v end)
+    AddToggle(TabMisc, "Third Person (Free Look)", false, function(s) 
+        config.thirdPerson = s 
+        if s then
+            -- Enable Free Look
+            LocalPlayer.CameraMode = Enum.CameraMode.Classic
+            LocalPlayer.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Zoom
+            UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+            -- Block Right Click (Aim)
+            ContextActionService:BindAction("DisableAim", function() return Enum.ContextActionResult.Sink end, false, Enum.UserInputType.MouseButton2)
+        else
+            -- Disable Free Look
+            LocalPlayer.CameraMinZoomDistance = 0.5
+            LocalPlayer.CameraMaxZoomDistance = 400
+            UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+            ContextActionService:UnbindAction("DisableAim")
+        end
+    end, "tp")
+    AddSlider(TabMisc, "TP Dist", 10, 50, 20, function(v) config.thirdPersonDist = v end)
+    
     AddToggle(TabMisc, "Fly Mode [F]", false, function(s)
         local root = LocalPlayer.Character.HumanoidRootPart
         if s then
@@ -585,6 +613,14 @@ local function LoadGalaxy()
             task.spawn(function() while s and root.Parent do RunService.RenderStepped:Wait(); local d = Vector3.new(); if UserInputService:IsKeyDown(Enum.KeyCode.W) then d=d+Camera.CFrame.LookVector end; if UserInputService:IsKeyDown(Enum.KeyCode.S) then d=d-Camera.CFrame.LookVector end; if UserInputService:IsKeyDown(Enum.KeyCode.A) then d=d-Camera.CFrame.RightVector end; if UserInputService:IsKeyDown(Enum.KeyCode.D) then d=d+Camera.CFrame.RightVector end; bv.Velocity = d * 65; bg.CFrame = Camera.CFrame end end)
         else
             LocalPlayer.Character.Humanoid.PlatformStand = false; if root:FindFirstChild("FlyG") then root.FlyG:Destroy() end; if root:FindFirstChild("FlyV") then root.FlyV:Destroy() end
+        end
+    end)
+    
+    Connect(RunService.RenderStepped, function()
+        if config.thirdPerson then
+            LocalPlayer.CameraMaxZoomDistance = config.thirdPersonDist
+            LocalPlayer.CameraMinZoomDistance = config.thirdPersonDist
+            UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter -- Force Lock
         end
     end)
 
@@ -598,6 +634,35 @@ local function LoadGalaxy()
         local btn = Instance.new("TextButton", f); btn.Size = UDim2.new(1, 0, 1, 0); btn.BackgroundTransparency = 1; btn.Text = text; btn.Font = Enum.Font.GothamBold; btn.TextColor3 = Color3.new(1, 1, 1); btn.TextSize = 14
         btn.MouseButton1Click:Connect(callback)
     end
+    
+    AddButton(TabSettings, "Save Config", function()
+        local data = {}
+        for k, v in pairs(config) do
+            if typeof(v) == "EnumItem" then data[k] = {EnumType = tostring(v.EnumType), Name = v.Name}
+            else data[k] = v end
+        end
+        writefile("galaxy_cfg.json", HttpService:JSONEncode(data))
+        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Galaxy", Text = "Config Saved", Duration = 2})
+    end)
+    
+    AddButton(TabSettings, "Load Config", function()
+        if isfile("galaxy_cfg.json") then
+            local data = HttpService:JSONDecode(readfile("galaxy_cfg.json"))
+            for k, v in pairs(data) do
+                if type(v) == "table" and v.EnumType then
+                    config[k] = Enum[tostring(v.EnumType)][v.Name]
+                else
+                    config[k] = v
+                end
+            end
+            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Galaxy", Text = "Config Loaded! Reboot Script to Apply fully.", Duration = 5})
+            -- Note: Full UI refresh requires rebuilding UI or complex binding. 
+            -- Simple solution: User re-injects or we just update background logic.
+            -- Visual toggles won't update instantly in this simple system without more code.
+        end
+    end)
+
+    AddButton(TabSettings, "UNLOAD CHEAT", function()
 
     AddButton(TabSettings, "UNLOAD CHEAT", function()
         for _, c in pairs(Connections) do c:Disconnect() end

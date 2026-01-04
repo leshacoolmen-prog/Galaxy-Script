@@ -662,7 +662,7 @@ local function LoadGalaxy()
         end
     end)
 
-    AddButton(TabSettings, "UNLOAD CHEAT", function()
+
 
     AddButton(TabSettings, "UNLOAD CHEAT", function()
         for _, c in pairs(Connections) do c:Disconnect() end

@@ -944,7 +944,15 @@ local function LoadGalaxy()
         game:GetService("StarterGui"):SetCore("SendNotification", {Title = "GALAXY", Text = "Unloaded Successfully", Duration = 3})
     end)
 
-    Connect(UserInputService.InputBegan, function(i, g) if not g and i.KeyCode == config.menuKey then MainFrame.Visible = not MainFrame.Visible end end)
+    Connect(UserInputService.InputBegan, function(i, g) 
+        -- Fix: Ignore 'g' (GameProcessed) for the Menu Key. Only stop if Typing.
+        if i.KeyCode == config.menuKey then 
+            if not UserInputService:GetFocusedTextBox() then
+                MainFrame.Visible = not MainFrame.Visible 
+                print("Galaxy: Toggle Menu to " .. tostring(MainFrame.Visible))
+            end
+        end 
+    end)
     
     local Circle = Instance.new("Frame", ScreenGui); Circle.BackgroundTransparency = 1; Circle.BorderSizePixel = 0
     local CircleStroke = Instance.new("UIStroke", Circle); CircleStroke.Thickness = 2

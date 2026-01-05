@@ -149,21 +149,51 @@ local function LoadGalaxy()
     -- // LOGIC LOOPS //
     
     -- NO RECOIL (Universal)
+    -- NO RECOIL (Universal v2 - Deep Scan)
     local function SilenceGun(tool)
         if not config.noRecoil then return end
+        
+        local function ScanTable(t, depth)
+            if depth > 3 then return end
+            for k, v in pairs(t) do
+                if type(v) == "number" then
+                    local name = tostring(k):lower()
+                    if name:find("recoil") or name:find("spread") or name:find("kick") or name:find("shake") then
+                        t[k] = 0
+                        print("Galaxy: Silenced " .. tostring(k))
+                    end
+                elseif type(v) == "table" then
+                    ScanTable(v, depth + 1)
+                end
+            end
+        end
+
+        print("Galaxy: Scanning Tool " .. tool.Name)
+        
+        -- 1. ModuleScript Scan
         for _, v in pairs(tool:GetDescendants()) do
             if v:IsA("ModuleScript") then
                 local success, module = pcall(require, v)
                 if success and type(module) == "table" then
-                    -- Common Recoil Keys in Roblox FPS frameworks
-                    local keys = {"Recoil", "RecoilMin", "RecoilMax", "Spread", "SpreadMin", "SpreadMax", "Kick", "CameraShake", "Shake"}
-                    for _, key in pairs(keys) do
-                        if module[key] then module[key] = 0 end
-                    end
+                    ScanTable(module, 1)
                 end
-            elseif v:IsA("NumberValue") and (v.Name:lower():find("recoil") or v.Name:lower():find("spread")) then
-                v.Value = 0
+            elseif v:IsA("NumberValue") then
+                 local name = v.Name:lower()
+                 if name:find("recoil") or name:find("spread") or name:find("kick") then
+                     v.Value = 0
+                     print("Galaxy: Zeroed Value " .. v.Name)
+                 end
             end
+        end
+        
+        -- 2. LocalScript Upvalue Scan (Xeno Support)
+        if debug and debug.getupvalues then
+             for _, v in pairs(tool:GetDescendants()) do
+                 if v:IsA("LocalScript") and v.Name:lower() ~= "client" then -- Skip generic names if risky
+                     -- Riskier, but needed for some ACS versions
+                     -- Logic omitted for safety/complexity unless requested, relying on Modules first.
+                 end
+             end
         end
     end
     
@@ -236,6 +266,8 @@ local function LoadGalaxy()
     end
 
     -- // UI PRE-SETUP (v9.0 Redesign) //
+    if LocalPlayer.PlayerGui:FindFirstChild("GalaxyV9") then LocalPlayer.PlayerGui.GalaxyV9:Destroy() end
+    
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "GalaxyV9"
     ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")

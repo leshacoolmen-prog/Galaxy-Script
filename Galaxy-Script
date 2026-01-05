@@ -435,134 +435,83 @@ local function LoadGalaxy()
 
     -- // VISUALS //
     local espEnabled = false
-    -- // VISUALS ENGINE (v7.5 REFACTOR) //
-    local VisualsConfig = {Box = nil, Tracer = nil}
+    -- // VISUALS ENGINE (v7.6 BEAMS & BOXES) //
     local function ClearVisuals(char)
         if char:FindFirstChild("G_Box") then char.G_Box:Destroy() end
-        if char:FindFirstChild("G_Tracer") then char.G_Tracer:Destroy() end
+        if char:FindFirstChild("G_Beam") then char.G_Beam:Destroy() end
+        if char:FindFirstChild("G_Att") then char.G_Att:Destroy() end
     end
 
     Connect(RunService.Heartbeat, function()
+        -- Ensure Local Attachment Exists
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            if not LocalPlayer.Character.HumanoidRootPart:FindFirstChild("G_Att_Local") then
+                local a = Instance.new("Attachment", LocalPlayer.Character.HumanoidRootPart); a.Name = "G_Att_Local"
+            end
+        end
+
         local targets = GetTargets()
-        
         for _, char in pairs(targets) do
             if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChildOfClass("Humanoid").Health > 0 then
                 local hrp = char.HumanoidRootPart
                 
-                -- [[ BOX ESP (BillboardGui) ]]
+                -- [[ BOX ESP (Styled) ]]
                 if config.boxEsp then
                     if not char:FindFirstChild("G_Box") then
                         local bb = Instance.new("BillboardGui", char); bb.Name = "G_Box"; bb.Size = UDim2.new(4,0,5.5,0); bb.AlwaysOnTop = true; bb.StudsOffset = Vector3.new(0,0,0)
                         local f = Instance.new("Frame", bb); f.Size = UDim2.new(1,0,1,0); f.BackgroundTransparency = 1
-                        local s = Instance.new("UIStroke", f); s.Color = rainbowColor; s.Thickness = 1.5; s.Transparency = 0
+                        -- Black Outline (Background)
+                        local s1 = Instance.new("UIStroke", f); s1.Name = "Outline"; s1.Thickness = 2.5; s1.Color = Color3.new(0,0,0); s1.Transparency = 0
+                        -- Colored Inline (Foreground)
+                        local s2 = Instance.new("UIStroke", f); s2.Name = "Inline"; s2.Thickness = 1; s2.Color = rainbowColor; s2.Transparency = 0
                     end
-                    char.G_Box.Frame.UIStroke.Color = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
+                    local box = char.G_Box.Frame
+                    box.Inline.Color = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
                 else
                     if char:FindFirstChild("G_Box") then char.G_Box:Destroy() end
                 end
 
-                -- [[ TRACERS (LineHandleAdornment 3D) ]]
-                if config.tracers then
-                    if not char:FindFirstChild("G_Tracer") then
-                       local l = Instance.new("LineHandleAdornment", char); l.Name = "G_Tracer"; l.Length = 10; l.Thickness = 2; l.Color3 = rainbowColor; l.AlwaysOnTop = true; l.ZIndex = 1
-                    end
-                    local t = char.G_Tracer
-                    t.Adornee = hrp
-                    t.Color3 = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
-                    
-                    -- Calculate 3D Line
-                    -- LineHandleAdornment is relative to Adornee (HRP). We need to point it to Camera.
-                    -- Actually, beams are better for Point A to Point B. But LineHandle is okay if we math it.
-                    -- Let's use simpler CylinderHandleAdornment or just a Beam? A Beam is easiest for "start to end".
-                    -- Switching to Beam for stability.
+                -- [[ TRACERS (Beams) ]]
+                if config.tracers and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart:FindFirstChild("G_Att_Local") then
                     if not char:FindFirstChild("G_Beam") then
-                        local a0 = Instance.new("Attachment", hrp); a0.Name = "G_Att0"
-                        local a1 = Instance.new("Attachment", LocalPlayer.Character:WaitForChild("HumanoidRootPart")); a1.Name = "G_Att1" -- This needs to be on local player. 
-                        -- Beam needs two attachments. One on enemy, one on self.
-                        -- Actually, 2D Tracers are preferred by users. Let's try the Frame method AGAIN but optimized.
-                        -- The user said "lines bug out". 
-                        -- Let's stick to LineHandleAdornment but point it correctly?
-                        -- Or better: A Beam associated with the Terrain?
-                        -- Let's use the RELIABLE Drawing API check? No, Xeno might not support it well.
-                        -- Let's go back to Frame but with valid visibility checks.
+                        -- Create Attachment on Target
+                        local att = Instance.new("Attachment", hrp); att.Name = "G_Att"
+                        -- Create Beam
+                        local b = Instance.new("Beam", char); b.Name = "G_Beam"
+                        b.Attachment0 = LocalPlayer.Character.HumanoidRootPart.G_Att_Local
+                        b.Attachment1 = att
+                        b.FaceCamera = true; b.Width0 = 0.2; b.Width1 = 0.2
+                        b.Color = ColorSequence.new(rainbowColor)
                     end
+                    local beam = char.G_Beam
+                    beam.Color = ColorSequence.new(config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent)
                  else
-                    if char:FindFirstChild("G_Tracer") then char.G_Tracer:Destroy() end
+                    ClearVisuals(char) -- Cleanup logic handled here mostly
                  end
             else
                 ClearVisuals(char)
             end
         end
         
-        -- Drawing TRACERS (2D Frame Optimized) - If config.tracers is true
-        -- We loop again for rendering frames (ScreenGui needs constant update)
-        if config.tracers then
-            for _, char in pairs(targets) do
-                if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChildOfClass("Humanoid").Health > 0 then
-                    local hrp = char.HumanoidRootPart
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-                    if onScreen then
-                        if not ScreenGui:FindFirstChild("T_"..char.Name) then
-                            local l = Instance.new("Frame", ScreenGui); l.Name = "T_"..char.Name; l.BorderSizePixel = 0; l.AnchorPoint = Vector2.new(0.5, 0.5)
-                        end
-                        local line = ScreenGui["T_"..char.Name]
-                        line.Visible = true; line.BackgroundColor3 = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
-                        
-                        local origin = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-                        local target = Vector2.new(screenPos.X, screenPos.Y)
-                        local dist = (target - origin).Magnitude
-                        line.Size = UDim2.new(0, dist, 0, 1.5)
-                        line.Position = UDim2.new(0, (origin.X + target.X) / 2, 0, (origin.Y + target.Y)/2)
-                        line.Rotation = math.deg(math.atan2(target.Y - origin.Y, target.X - origin.X))
-                    else
-                        if ScreenGui:FindFirstChild("T_"..char.Name) then ScreenGui["T_"..char.Name].Visible = false end
-                    end
-                else
-                     if ScreenGui:FindFirstChild("T_"..char.Name) then ScreenGui["T_"..char.Name].Visible = false end
-                end
-            end
-        else
-            for _, v in pairs(ScreenGui:GetChildren()) do if v.Name:sub(1,2) == "T_" then v.Visible = false end end
-        end
+        -- Cleanup Orphans
+        for _, c in pairs(ScreenGui:GetChildren()) do if c.Name:sub(1,2) == "T_" then c:Destroy() end end -- Remove old 2D tracers
     end)
     
-    -- PHYSICS LOOP
-    
-    -- PHYSICS LOOP (Speed, Jump, NoClip)
-    Connect(RunService.Stepped, function()
-        if LocalPlayer.Character then
+    -- PHYSICS LOOP (Speed, Jump, NoClip, BHop)
+    Connect(RunService.RenderStepped, function()
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
              local char = LocalPlayer.Character
-             if char:FindFirstChild("Humanoid") then
-                -- Speed & Jump
-                if config.walkSpeed > 16 then char.Humanoid.WalkSpeed = config.walkSpeed end
-                if config.jumpPower > 50 then char.Humanoid.JumpPower = config.jumpPower end
-             end
+             local hum = char.Humanoid
              
-             -- NoClip
-             if config.noclip then
-                for _, v in pairs(char:GetDescendants()) do
-                    if v:IsA("BasePart") then v.CanCollide = false end
-                end
-             end
-
-             -- Rage Anti-Aim (Spinbot + Jitter)
-             if config.antiAim then
-                 local root = char:FindFirstChild("HumanoidRootPart")
-                 if root then
-                     -- Jitter + Spin
-                     root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(100), 0) * CFrame.Angles(math.rad(math.random(-20,20)), 0, 0)
-                     -- Note: This visually shakes the character for everyone.
-                     -- To decouple Camera, we rely on standard Roblox camera behavior.
-                 end
-             end
-             
-             -- Infinite Ammo (Universal)
-             if config.infAmmo then
-                 for _, v in pairs(char:GetDescendants()) do
-                     if (v:IsA("IntValue") or v:IsA("NumberValue")) then
-                         local n = v.Name:lower()
-                         if n == "ammo" or n == "clip" or n == "mag" or n == "stored" or n == "reserve" then
-                             v.Value = 999
+             -- Speed BHop
+             if config.bhop and hum.MoveDirection.Magnitude > 0 then
+                 if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                     if hum.FloorMaterial ~= Enum.Material.Air then
+                         hum.Jump = true
+                         -- Speed Boost
+                         local root = char:FindFirstChild("HumanoidRootPart")
+                         if root then
+                             root.Velocity = root.Velocity + (hum.MoveDirection * 5) -- Boost
                          end
                      end
                  end
@@ -570,17 +519,45 @@ local function LoadGalaxy()
         end
     end)
 
-    -- // BINDING //
+    Connect(RunService.Stepped, function()
+        if LocalPlayer.Character then
+             local char = LocalPlayer.Character
+             if char:FindFirstChild("Humanoid") then
+                if config.walkSpeed > 16 then char.Humanoid.WalkSpeed = config.walkSpeed end
+                if config.jumpPower > 50 then char.Humanoid.JumpPower = config.jumpPower end
+             end
+             if config.noclip then
+                for _, v in pairs(char:GetDescendants()) do
+                    if v:IsA("BasePart") then v.CanCollide = false end
+                end
+             end
+             if config.antiAim then
+                 local root = char:FindFirstChild("HumanoidRootPart")
+                 if root then
+                     root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(100), 0) * CFrame.Angles(math.rad(math.random(-20,20)), 0, 0)
+                 end
+             end
+             if config.infAmmo then
+                 for _, v in pairs(char:GetDescendants()) do
+                     if (v:IsA("IntValue") or v:IsA("NumberValue")) then
+                         local n = v.Name:lower()
+                         if n == "ammo" or n == "clip" or n == "mag" or n == "stored" or n == "reserve" then v.Value = 999 end
+                     end
+                 end
+             end
+        end
+    end)
+
     -- // BINDING // 
     AddToggle(TabCombat, "Aimbot", false, function(s) aimEnabled = s end, "aim")
     AddToggle(TabCombat, "TriggerBot", false, function(s) triggerEnabled = s end, "trig")
     AddToggle(TabCombat, "Inf Ammo (Univ)", false, function(s) config.infAmmo = s end, "ammo")
     AddToggle(TabCombat, "Wall Check", true, function(s) config.wallCheck = s end, "wall")
-    AddToggle(TabMisc, "BunnyHop", false, function(s) config.bhop = s end, "bhop")
+    AddToggle(TabMisc, "Speed BHop", false, function(s) config.bhop = s end, "bhop")
     AddToggle(TabVisuals, "ESP", false, function(s) espEnabled = s end, "esp")
     AddToggle(TabVisuals, "Show FOV", true, function(s) config.showFov = s end, "fov")
-    AddToggle(TabVisuals, "Tracers", false, function(s) config.tracers = s end, "trace")
-    AddToggle(TabVisuals, "Box ESP", false, function(s) config.boxEsp = s end, "box")
+    AddToggle(TabVisuals, "Tracers (Beam)", false, function(s) config.tracers = s end, "trace")
+    AddToggle(TabVisuals, "Box ESP (Style)", false, function(s) config.boxEsp = s end, "box")
     AddDropdown(TabVisuals, "Scan Mode", {"All", "Players"}, function(v) config.espMode = v end)
 
     AddToggle(TabMisc, "NoClip", false, function(s) config.noclip = s end, "noclip")
@@ -597,19 +574,34 @@ local function LoadGalaxy()
     KeyList.Visible = config.keybindList
     AddToggle(TabSettings, "Show Keybind List", true, function(s) KeyList.Visible = s end)
     AddSlider(TabMisc, "Jump", 50, 300, 50, function(v) config.jumpPower = v end)
+    
+    -- CUSTOM THIRD PERSON (ShiftLock Style)
+    local CamRot = Vector2.new(0,0)
     AddToggle(TabMisc, "Third Person", false, function(s) 
         config.thirdPerson = s 
         if s then
-            -- Native Roblox Third Person (Most reliable for shooting)
-            LocalPlayer.CameraMode = Enum.CameraMode.Classic
-            LocalPlayer.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Zoom
-            -- We don't force MouseBehavior here, let the game handle right-click to look, or ShiftLock.
-            -- To force "Free Look" without right click, we use LockCenter BUT allow input.
-            UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+            RunService:BindToRenderStep("GalaxyTP", Enum.RenderPriority.Camera.Value + 1, function()
+                UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+                local mouseDelta = UserInputService:GetMouseDelta()
+                CamRot = CamRot - mouseDelta * 0.005 -- Sens
+                -- Clamp Pitch
+                CamRot = Vector2.new(CamRot.X, math.clamp(CamRot.Y, math.rad(-80), math.rad(80)))
+                
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
+                   local head = LocalPlayer.Character.Head
+                   -- Calculate CFrame
+                   local rotCFrame = CFrame.Angles(0, CamRot.X, 0) * CFrame.Angles(CamRot.Y, 0, 0)
+                   local finalCFrame = CFrame.new(head.Position) * rotCFrame * CFrame.new(2, 2, config.thirdPersonDist) -- Offset
+                   
+                   -- Raycast for collision (Auto-Zoom logic) can be added here, but user wants raw control.
+                   Camera.CFrame = finalCFrame
+                   Camera.Focus = CFrame.new(head.Position)
+                end
+            end)
         else
-            LocalPlayer.CameraMinZoomDistance = 0.5
-            LocalPlayer.CameraMaxZoomDistance = 400
+            RunService:UnbindFromRenderStep("GalaxyTP")
             UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+            LocalPlayer.CameraMode = Enum.CameraMode.Custom -- Reset
         end
     end, "tp")
     AddSlider(TabMisc, "TP Dist", 10, 50, 20, function(v) config.thirdPersonDist = v end)
@@ -626,12 +618,7 @@ local function LoadGalaxy()
         end
     end)
     
-    Connect(RunService.RenderStepped, function()
-        if config.thirdPerson then
-            LocalPlayer.CameraMaxZoomDistance = config.thirdPersonDist
-            LocalPlayer.CameraMinZoomDistance = config.thirdPersonDist
-        end
-    end)
+    -- TP handled by BindToRenderStep now
 
     AddDropdown(TabSettings, "Theme", {"Rainbow", "Purple", "Blue", "Red"}, function(v) UpdateThemeColors(v) end)
     AddKeybind(TabSettings, "Menu Key", config.menuKey, "menuKey")

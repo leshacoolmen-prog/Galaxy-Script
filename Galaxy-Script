@@ -947,12 +947,37 @@ local function LoadGalaxy()
         game:GetService("StarterGui"):SetCore("SendNotification", {Title = "GALAXY", Text = "Unloaded Successfully", Duration = 3})
     end)
 
+    -- // FALLBACK MENU CONTROLS //
+    local OpenBtn = Instance.new("TextButton", ScreenGui)
+    OpenBtn.Name = "OpenButton"
+    OpenBtn.Size = UDim2.new(0, 100, 0, 30)
+    OpenBtn.Position = UDim2.new(0, 10, 0, 10)
+    OpenBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    OpenBtn.Text = "OPEN GALAXY"
+    OpenBtn.TextColor3 = Color3.new(1,1,1)
+    OpenBtn.Font = Enum.Font.GothamBold
+    OpenBtn.TextSize = 12
+    Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(0, 6)
+    
+    local function ToggleMenu()
+        MainFrame.Visible = not MainFrame.Visible
+        OpenBtn.Visible = not MainFrame.Visible
+        
+        if MainFrame.Visible then
+            -- Reset Position on Open (Fixes off-screen issues)
+            MainFrame.Position = UDim2.new(0.5, -260, 0.5, -200)
+            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Galaxy", Text = "Menu Opened", Duration = 1})
+        end
+    end
+    OpenBtn.MouseButton1Click:Connect(ToggleMenu)
+    MainFrame:GetPropertyChangedSignal("Visible"):Connect(function() OpenBtn.Visible = not MainFrame.Visible end)
+    OpenBtn.Visible = not MainFrame.Visible -- Init state
+
     Connect(UserInputService.InputBegan, function(i, g) 
-        -- Fix: Ignore 'g' (GameProcessed) for the Menu Key. Only stop if Typing.
-        if i.KeyCode == config.menuKey then 
+        -- Toggle on Insert OR Right Shift
+        if i.KeyCode == config.menuKey or i.KeyCode == Enum.KeyCode.RightShift then 
             if not UserInputService:GetFocusedTextBox() then
-                MainFrame.Visible = not MainFrame.Visible 
-                print("Galaxy: Toggle Menu to " .. tostring(MainFrame.Visible))
+                ToggleMenu()
             end
         end 
     end)

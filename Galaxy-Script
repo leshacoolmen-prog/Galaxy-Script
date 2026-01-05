@@ -79,6 +79,7 @@ local function LoadGalaxy()
     local Sounds = {On = "rbxassetid://4612375233", Off = "rbxassetid://4612377140"}
     
     local PlayerConnections = {}
+    local RefreshKeyList -- Forward Declaration for UI updates
 
     -- // CONFIGURATION //
     local config = {
@@ -575,16 +576,24 @@ local function LoadGalaxy()
     -- (Previous code was here, ensuring variables are local)
 
     -- // KEYBIND HUD REFRESHER //
-    local function RefreshKeyList()
+    -- Forward Declared at top of LoadGalaxy scope ideally, but we assign here.
+    -- RefreshKeyList was defined as 'local function', meaning earlier closures (AddBind) might miss it if not careful.
+    -- We will make it global to this scope or ensure it's captured. 
+    -- Better: Assign to a pre-defined local if possible, or just rely on 'RefreshKeyList' being visible here.
+    -- For now, we keep it here but ensure the initial call is safe.
+    
+    local function AddKeybind_Dummy() end -- Placeholder
+    
+    RefreshKeyList = function()
         if not KeyList then return end
-        -- Clear old
+        -- Clear old labels (KEEP TITLE)
         for _, c in pairs(KeyList:GetChildren()) do
             if c:IsA("TextLabel") and c.Name ~= "Title" then c:Destroy() end
         end
         
-        -- Helper to add
+        -- Helper to add entry
         local function AddListEntry(name, key)
-            if not key or key.Name == "Unknown" then return end
+            if not key or typeof(key) ~= "EnumItem" then return end
             local t = Instance.new("TextLabel", KeyList)
             t.Name = name
             t.Size = UDim2.new(1, -10, 0, 20)
@@ -595,27 +604,28 @@ local function LoadGalaxy()
             t.TextXAlignment = Enum.TextXAlignment.Left
         end
         
-        -- Static Binds
-        AddListEntry("Menu", config.menuKey)
-        AddListEntry("Aimbot", config.aimKey)
-        AddListEntry("Trigger", config.triggerKey)
+        -- Static Binds checks
+        if config.menuKey then AddListEntry("Menu", config.menuKey) end
+        if config.aimKey then AddListEntry("Aimbot", config.aimKey) end
+        if config.triggerKey then AddListEntry("Trigger", config.triggerKey) end
         
         -- Dynamic Binds
-        for id, k in pairs(config.binds) do
-            -- Find readable name based on ID? We used ID as key.
-            -- Mapping IDs to Names manually or storing Name in binds?
-            -- Current AddBind stores just KeyCode in config.binds[id].
-            -- We need a Name map.
-            local names = {
-                esp="ESP", fly="Fly", noclip="NoClip", tp="3rd Person", 
-                aa="Anti-Aim", trace="Tracers", bhop="BunnyHop"
-            }
-            AddListEntry(names[id] or id, k)
+        if config.binds then
+            for id, k in pairs(config.binds) do
+                local names = {
+                    esp="ESP", fly="Fly", noclip="NoClip", tp="3rd Person", 
+                    aa="Anti-Aim", trace="Tracers", bhop="BunnyHop"
+                }
+                AddListEntry(names[id] or id, k)
+            end
         end
     end
-
-    -- Update Keybinds HUD UI
-    RefreshKeyList()
+    
+    -- Expose to shared scope if needed (Hack for AddBind to see it if it wasn't valid)
+    -- Actually, since AddBind calls it inside a callback, it resolves the upvalue at RUNTIME. 
+    -- As long as RefreshKeyList is defined in the same scope 'LoadGalaxy' before the callback fires, it works.
+    -- Initial Call:
+    task.spawn(function() pcall(RefreshKeyList) end)
     
     -- Hook into Theme Update
     game:GetService("RunService").RenderStepped:Connect(function()

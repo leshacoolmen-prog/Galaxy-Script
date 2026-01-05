@@ -389,9 +389,11 @@ local function LoadGalaxy()
         
         local btn = Instance.new("TextButton", f); btn.Size = UDim2.new(1,0,1,0); btn.BackgroundTransparency = 1; btn.Text = ""
         local dragging = false
+        local function Update(input)
+            local p = math.clamp((Mouse.X - slideBar.AbsolutePosition.X) / slideBar.AbsoluteSize.X, 0, 1)
             local value = math.floor(min + ((max - min) * p))
-            fill.Size = UDim2.new(p, 0, 1, 0)
-            val.Text = tostring(value)
+            Tween(fill, {Size = UDim2.new(p, 0, 1, 0)})
+            vLabel.Text = tostring(value)
             callback(value)
         end
         

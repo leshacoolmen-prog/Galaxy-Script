@@ -689,6 +689,12 @@ local function LoadGalaxy()
         config.thirdPerson = s 
         if s then
             RunService:BindToRenderStep("GalaxyTP", Enum.RenderPriority.Camera.Value + 1, function()
+                -- v8.2: Menu Priority
+                if MainFrame.Visible then
+                    UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+                    return
+                end
+                
                 UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
                 local mouseDelta = UserInputService:GetMouseDelta()
                 CamRot = CamRot - mouseDelta * 0.005 -- Sens
@@ -823,9 +829,14 @@ local function LoadGalaxy()
         Circle.Size = UDim2.new(0, config.fovSize*2, 0, config.fovSize*2)
         local c = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
         CircleStroke.Color = c
+        
+        -- v8.2: GENERAL MOUSE UNLOCK
+        if MainFrame.Visible then
+            UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+        end
     end)
     
-    game:GetService("StarterGui"):SetCore("SendNotification", {Title = "GALAXY V8.1", Text = "All-Seeing Eye Loaded", Duration = 5})
+    game:GetService("StarterGui"):SetCore("SendNotification", {Title = "GALAXY V8.2", Text = "All-Seeing Eye Loaded", Duration = 5})
 end
 
 -- // PERSISTENT AUTH //

@@ -565,6 +565,15 @@ local function LoadGalaxy()
     AddToggle(TabMisc, "Rage Anti-Aim", false, function(s) config.antiAim = s end, "aa") -- SPINBOT
     AddSlider(TabMisc, "Speed", 16, 200, 16, function(v) config.walkSpeed = v end)
     
+    -- // KEYBIND HUD UI //
+    local KeyList = Instance.new("Frame", ScreenGui); KeyList.Position = UDim2.new(0, 10, 0.4, 0); KeyList.Size = UDim2.new(0, 180, 0, 250); KeyList.BackgroundTransparency = 1; KeyList.Active = true; KeyList.Draggable = true
+    local KeyTitle = Instance.new("TextLabel", KeyList); KeyTitle.Name = "Title"; KeyTitle.Text = "Keybinds (Drag)"; KeyTitle.Font = Enum.Font.GothamBlack; KeyTitle.TextColor3 = Color3.new(1,1,1); KeyTitle.Size = UDim2.new(1,0,0,20); KeyTitle.BackgroundTransparency = 1; KeyTitle.TextXAlignment = Enum.TextXAlignment.Left
+    local KeyLayout = Instance.new("UIListLayout", KeyList); KeyLayout.SortOrder = Enum.SortOrder.LayoutOrder; KeyLayout.Padding = UDim.new(0,5)
+    KeyList.Visible = config.keybindList
+    
+    -- // SEARCH UI //
+    -- (Previous code was here, ensuring variables are local)
+
     -- // KEYBIND HUD REFRESHER //
     local function RefreshKeyList()
         if not KeyList then return end
@@ -606,10 +615,6 @@ local function LoadGalaxy()
     end
 
     -- Update Keybinds HUD UI
-    KeyList.Size = UDim2.new(0, 180, 0, 250); KeyList.Active = true; KeyList.Draggable = true
-    KeyList:FindFirstChild("UIListLayout"):Destroy() -- Reset layout
-    local KeyLayout = Instance.new("UIListLayout", KeyList); KeyLayout.SortOrder = Enum.SortOrder.LayoutOrder; KeyLayout.Padding = UDim.new(0,5)
-    KeyTitle.Name = "Title"; KeyTitle.Text = "Keybinds (Drag)"
     RefreshKeyList()
     
     -- Hook into Theme Update

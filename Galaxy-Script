@@ -242,17 +242,7 @@ local function LoadGalaxy()
     ScreenGui.ResetOnSpawn = false
     ScreenGui.DisplayOrder = 10000 
     
-    -- SHADOW
-    local Shadow = Instance.new("ImageLabel", ScreenGui)
-    Shadow.AnchorPoint = Vector2.new(0.5, 0.5)
-    Shadow.Position = UDim2.new(0.5, 0, 0.5, 0)
-    Shadow.Size = UDim2.new(0, 540, 0, 420)
-    Shadow.Image = "rbxassetid://6015897843" -- Blur/Shadow
-    Shadow.ImageTransparency = 0.4
-    Shadow.ImageColor3 = Color3.new(0,0,0)
-    Shadow.BackgroundTransparency = 1
-    Shadow.Visible = true
-
+    -- SHADOW (Moved inside MainFrame for perfect sync)
     local MainFrame = Instance.new("Frame", ScreenGui)
     MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
     MainFrame.Position = UDim2.new(0.5, -260, 0.5, -200) -- Centered
@@ -262,11 +252,15 @@ local function LoadGalaxy()
     MainFrame.Draggable = true
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
     
-    -- Sync Shadow
-    MainFrame:GetPropertyChangedSignal("Position"):Connect(function()
-        Shadow.Position = MainFrame.Position + UDim2.new(0.02, 0, 0.02, 0)
-    end)
-    MainFrame:GetPropertyChangedSignal("Visible"):Connect(function() Shadow.Visible = MainFrame.Visible end)
+    local Shadow = Instance.new("ImageLabel", MainFrame)
+    Shadow.Name = "Shadow"
+    Shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+    Shadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+    Shadow.Size = UDim2.new(1, 40, 1, 40) -- Slightly larger
+    Shadow.Image = "rbxassetid://6015897843"
+    Shadow.ImageTransparency = 0.4
+    Shadow.BackgroundTransparency = 1
+    Shadow.ZIndex = 0 -- Behind MainFrame (Default Frame is 1)
     
     -- MAIN STROKE
     local UIStroke = Instance.new("UIStroke", MainFrame); UIStroke.Thickness = 2; RegisterThemeObject(UIStroke, "Color", "Accent")
@@ -281,7 +275,7 @@ local function LoadGalaxy()
     local SidebarTitle = Instance.new("TextLabel", Sidebar); SidebarTitle.Text = "GALAXY"; SidebarTitle.Font = Enum.Font.GothamBlack; SidebarTitle.TextSize = 32; SidebarTitle.Size = UDim2.new(1, 0, 0, 70); SidebarTitle.BackgroundTransparency = 1; RegisterThemeObject(SidebarTitle, "TextColor3", "Accent")
     
     -- Container
-    local Container = Instance.new("Frame", MainFrame); Container.BackgroundTransparency = 1; Container.Position = UDim2.new(0, 160, 0, 10); Container.Size = UDim2.new(0, 350, 1, -20)
+    local Container = Instance.new("Frame", MainFrame); Container.BackgroundTransparency = 1; Container.Position = UDim2.new(0, 160, 0, 10); Container.Size = UDim2.new(0, 350, 1, -20); Container.ClipsDescendants = true
     
     local HUD = Instance.new("Frame", ScreenGui); HUD.BackgroundTransparency = 1; HUD.Size = UDim2.new(1,0,1,0)
     local Watermark = Instance.new("TextLabel", HUD); Watermark.Position = UDim2.new(0,25,0,25); Watermark.Size = UDim2.new(0,200,0,30); Watermark.BackgroundTransparency = 1; Watermark.Text = "GALAXY V9.0"; Watermark.Font = Enum.Font.GothamBlack; Watermark.TextSize = 24; Watermark.TextXAlignment = Enum.TextXAlignment.Left; RegisterThemeObject(Watermark, "TextColor3", "Accent")
@@ -303,11 +297,18 @@ local function LoadGalaxy()
         frame.BackgroundTransparency = 1
         frame.Size = UDim2.new(1, 0, 1, 0)
         frame.CanvasSize = UDim2.new(0,0,0,0)
-        frame.AutomaticCanvasSize = Enum.AutomaticSize.Y
         frame.ScrollBarThickness = 2
         frame.ScrollBarImageColor3 = Color3.fromRGB(80,80,80)
         frame.Visible = false
-        local layout = Instance.new("UIListLayout", frame); layout.Padding = UDim.new(0, 8); layout.SortOrder = Enum.SortOrder.LayoutOrder
+        
+        local layout = Instance.new("UIListLayout", frame)
+        layout.Padding = UDim.new(0, 8)
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+        
+        -- Manual Canvas Size Calculation (Fixes Empty Tabs)
+        layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            frame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
+        end)
         
         -- Animation
         btn.MouseEnter:Connect(function() if not frame.Visible then Tween(btn, {TextColor3 = Color3.fromRGB(200,200,200)}) end end)

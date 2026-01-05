@@ -281,6 +281,8 @@ local function LoadGalaxy()
     local Watermark = Instance.new("TextLabel", HUD); Watermark.Position = UDim2.new(0,25,0,25); Watermark.Size = UDim2.new(0,200,0,30); Watermark.BackgroundTransparency = 1; Watermark.Text = "GALAXY V9.0"; Watermark.Font = Enum.Font.GothamBlack; Watermark.TextSize = 24; Watermark.TextXAlignment = Enum.TextXAlignment.Left; RegisterThemeObject(Watermark, "TextColor3", "Accent")
 
     local Tabs = {}
+    local TabHeights = {} -- Manual Layout Tracker
+    
     local function CreateTab(name)
         local btn = Instance.new("TextButton", Sidebar)
         btn.Size = UDim2.new(1, -20, 0, 40)
@@ -301,14 +303,7 @@ local function LoadGalaxy()
         frame.ScrollBarImageColor3 = Color3.fromRGB(80,80,80)
         frame.Visible = false
         
-        local layout = Instance.new("UIListLayout", frame)
-        layout.Padding = UDim.new(0, 8)
-        layout.SortOrder = Enum.SortOrder.LayoutOrder
-        
-        -- Manual Canvas Size Calculation (Fixes Empty Tabs)
-        layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            frame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
-        end)
+        TabHeights[frame] = 10 -- Initial Y Offset
         
         -- Animation
         btn.MouseEnter:Connect(function() if not frame.Visible then Tween(btn, {TextColor3 = Color3.fromRGB(200,200,200)}) end end)
@@ -324,14 +319,23 @@ local function LoadGalaxy()
     end
     local TabCombat = CreateTab("Combat"); local TabVisuals = CreateTab("Visuals"); local TabMisc = CreateTab("Misc"); local TabSettings = CreateTab("Settings"); Tabs[1].Frame.Visible = true; Tabs[1].Btn.TextColor3 = Color3.new(1,1,1)
 
-    -- // UI ELEMENTS (Animated) //
+    -- // UI ELEMENTS (Animated & Manual Layout) //
+    local function UpdateLayout(parent, frame)
+        local y = TabHeights[parent] or 10
+        frame.Position = UDim2.new(0, 0, 0, y)
+        TabHeights[parent] = y + frame.Size.Y.Offset + 8 -- Height + Padding
+        parent.CanvasSize = UDim2.new(0, 0, 0, TabHeights[parent] + 20)
+    end
+
     local function AddToggle(parent, text, default, callback, id)
         local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -5, 0, 42); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f).CornerRadius = UDim.new(0, 6)
+        UpdateLayout(parent, f)
+        
         local l = Instance.new("TextLabel", f); l.Text = text; l.Font = Enum.Font.GothamBold; l.TextColor3 = Color3.new(1, 1, 1); l.BackgroundTransparency = 1; l.Size = UDim2.new(0.6, 0, 1, 0); l.Position = UDim2.new(0, 15, 0, 0); l.TextXAlignment = Enum.TextXAlignment.Left; l.TextSize=14
         
         -- Switch
-        local switchBase = Instance.new("Frame", f); switchBase.Size = UDim2.new(0, 44, 0, 22); switchBase.Position = UDim2.new(1, -55, 0.5, -11); switchBase.BackgroundColor3 = Color3.fromRGB(50,50,55); Instance.new("UICorner", switchBase).CornerRadius = UDim.New(1,0)
-        local switchCircle = Instance.new("Frame", switchBase); switchCircle.Size = UDim2.new(0, 18, 0, 18); switchCircle.Position = UDim2.new(0, 2, 0.5, -9); switchCircle.BackgroundColor3 = Color3.fromRGB(200,200,200); Instance.new("UICorner", switchCircle).CornerRadius = UDim.New(1,0)
+        local switchBase = Instance.new("Frame", f); switchBase.Size = UDim2.new(0, 44, 0, 22); switchBase.Position = UDim2.new(1, -55, 0.5, -11); switchBase.BackgroundColor3 = Color3.fromRGB(50,50,55); Instance.new("UICorner", switchBase).CornerRadius = UDim.new(1,0)
+        local switchCircle = Instance.new("Frame", switchBase); switchCircle.Size = UDim2.new(0, 18, 0, 18); switchCircle.Position = UDim2.new(0, 2, 0.5, -9); switchCircle.BackgroundColor3 = Color3.fromRGB(200,200,200); Instance.new("UICorner", switchCircle).CornerRadius = UDim.new(1,0)
         
         local btn = Instance.new("TextButton", f); btn.Size = UDim2.new(1,0,1,0); btn.BackgroundTransparency = 1; btn.Text = ""
         
@@ -384,6 +388,8 @@ local function LoadGalaxy()
     
     local function AddSlider(parent, text, min, max, default, callback)
         local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -5, 0, 50); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f).CornerRadius = UDim.new(0, 6)
+        UpdateLayout(parent, f)
+        
         local l = Instance.new("TextLabel", f); l.Text = text; l.Font = Enum.Font.GothamBold; l.TextColor3 = Color3.new(1,1,1); l.BackgroundTransparency = 1; l.Position = UDim2.new(0, 15, 0, 5); l.TextXAlignment = Enum.TextXAlignment.Left; l.TextSize = 14
         local vLabel = Instance.new("TextLabel", f); vLabel.Text = tostring(default); vLabel.Font = Enum.Font.GothamBold; vLabel.TextColor3 = Color3.new(1,1,1); vLabel.BackgroundTransparency = 1; vLabel.Position = UDim2.new(1, -40, 0, 5); vLabel.TextXAlignment = Enum.TextXAlignment.Right; vLabel.TextSize = 14
         
@@ -413,6 +419,8 @@ local function LoadGalaxy()
 
     local function AddDropdown(parent, text, options, callback)
         local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -10, 0, 40); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f)
+        UpdateLayout(parent, f)
+        
         local l = Instance.new("TextLabel", f); l.Text = text; l.Font = Enum.Font.Gotham; l.TextColor3 = Color3.new(1, 1, 1); l.BackgroundTransparency = 1; l.Size = UDim2.new(0.5, 0, 1, 0); l.Position = UDim2.new(0, 15, 0, 0); l.TextXAlignment = Enum.TextXAlignment.Left
         local btn = Instance.new("TextButton", f); btn.Size = UDim2.new(0, 110, 0, 26); btn.Position = UDim2.new(1, -125, 0.17, 0); btn.Text = options[1]; btn.BackgroundColor3 = Color3.fromRGB(50, 50, 55); btn.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
         local idx = 1; btn.MouseButton1Click:Connect(function() idx = idx + 1; if idx > #options then idx = 1 end; btn.Text = options[idx]; callback(options[idx]) end)
@@ -833,6 +841,8 @@ local function LoadGalaxy()
     
     local function AddButton(parent, text, callback)
         local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -5, 0, 42); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f).CornerRadius = UDim.new(0, 6)
+        UpdateLayout(parent, f)
+        
         local btn = Instance.new("TextButton", f); btn.Size = UDim2.new(1, 0, 1, 0); btn.BackgroundTransparency = 1; btn.Text = text; btn.Font = Enum.Font.GothamBold; btn.TextColor3 = Color3.new(1, 1, 1); btn.TextSize = 14
         
         btn.MouseEnter:Connect(function() Tween(f, {BackgroundColor3 = Color3.fromRGB(45, 45, 50)}) end)

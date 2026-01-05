@@ -120,6 +120,10 @@ local function LoadGalaxy()
         thirdPerson = false,
         thirdPersonDist = 20,
         
+        -- v8.1 KnifeBot
+        knifeBot = false,
+        knifeRange = 15,
+        
         -- Internal Binds Storage
         binds = {}
     }
@@ -133,6 +137,42 @@ local function LoadGalaxy()
     }
     local CurrentTheme = Themes.Rainbow
     local ThemeObjects = {} 
+    
+    -- ... (Themes Logic) ...
+
+    -- // LOGIC LOOPS //
+    
+    -- KNIFEBOT LOGIC
+    Connect(RunService.Stepped, function()
+        if config.knifeBot and LocalPlayer.Character then
+            local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+            if tool then
+                local myRoot = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if myRoot then
+                    local closest = nil
+                    local minDst = config.knifeRange
+                    for _, p in pairs(Players:GetPlayers()) do
+                        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                            local dist = (p.Character.HumanoidRootPart.Position - myRoot.Position).Magnitude
+                            if dist < minDst then
+                                minDst = dist
+                                closest = p.Character.HumanoidRootPart
+                            end
+                        end
+                    end
+                    
+                    if closest then
+                        -- Face Target (Instant match Y rotation)
+                        local lookPos = Vector3.new(closest.Position.X, myRoot.Position.Y, closest.Position.Z)
+                        myRoot.CFrame = CFrame.lookAt(myRoot.Position, lookPos)
+                        -- Activate
+                        tool:Activate()
+                    end
+                end
+            end
+        end
+    end)
+ 
     local rainbowColor = Color3.new(1,1,1)
 
     local function RegisterThemeObject(obj, prop, type)
@@ -553,6 +593,9 @@ local function LoadGalaxy()
     -- // BINDING // 
     AddToggle(TabCombat, "Aimbot", false, function(s) aimEnabled = s end, "aim")
     AddToggle(TabCombat, "TriggerBot", false, function(s) triggerEnabled = s end, "trig")
+    AddToggle(TabCombat, "Knife Aura", false, function(s) config.knifeBot = s end, "knife")
+    AddSlider(TabCombat, "Knife Range", 5, 30, 15, function(v) config.knifeRange = v end)
+    
     AddToggle(TabCombat, "Inf Ammo (Univ)", false, function(s) config.infAmmo = s end, "ammo")
     AddToggle(TabCombat, "Wall Check", true, function(s) config.wallCheck = s end, "wall")
     AddToggle(TabMisc, "Speed BHop", false, function(s) config.bhop = s end, "bhop")
@@ -615,7 +658,7 @@ local function LoadGalaxy()
             for id, k in pairs(config.binds) do
                 local names = {
                     esp="ESP", fly="Fly", noclip="NoClip", tp="3rd Person", 
-                    aa="Anti-Aim", trace="Tracers", bhop="BunnyHop"
+                    aa="Anti-Aim", trace="Tracers", bhop="BunnyHop", knife="KnifeBot"
                 }
                 AddListEntry(names[id] or id, k)
             end
@@ -698,6 +741,7 @@ local function LoadGalaxy()
     AddBind(TabSettings, "Anti-Aim Toggle", "aa")
     AddBind(TabSettings, "Tracers Toggle", "trace")
     AddBind(TabSettings, "Speed BHop Toggle", "bhop")
+    AddBind(TabSettings, "KnifeBot Toggle", "knife")
     
     local function AddButton(parent, text, callback)
         local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -10, 0, 40); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f)

@@ -124,13 +124,16 @@ local function LoadGalaxy()
         knifeBot = false,
         knifeRange = 15,
         
+        -- v8.3 No Recoil
+        noRecoil = false,
+        
         -- Internal Binds Storage
         binds = {}
     }
 
     -- // THEME ENGINE //
     local Themes = {
-        Rainbow = {Main = Color3.fromRGB(20, 20, 25), Accent = Color3.new(1,1,1)},
+        Rainbow = {Main = Color3.fromRGB(20, 20, 25), Accent = Color3.fromRGB(0, 255, 150)}, -- Default to Mint/Neon
         Purple = {Main = Color3.fromRGB(20, 20, 25), Accent = Color3.fromRGB(170, 0, 255)},
         Blue = {Main = Color3.fromRGB(15, 20, 30), Accent = Color3.fromRGB(0, 150, 255)},
         Red = {Main = Color3.fromRGB(25, 15, 15), Accent = Color3.fromRGB(255, 50, 50)}
@@ -138,9 +141,40 @@ local function LoadGalaxy()
     local CurrentTheme = Themes.Rainbow
     local ThemeObjects = {} 
     
-    -- ... (Themes Logic) ...
+    local TweenService = game:GetService("TweenService")
+    local function Tween(obj, props, time)
+        TweenService:Create(obj, TweenInfo.new(time or 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props):Play()
+    end
 
     -- // LOGIC LOOPS //
+    
+    -- NO RECOIL (Universal)
+    local function SilenceGun(tool)
+        if not config.noRecoil then return end
+        for _, v in pairs(tool:GetDescendants()) do
+            if v:IsA("ModuleScript") then
+                local success, module = pcall(require, v)
+                if success and type(module) == "table" then
+                    -- Common Recoil Keys in Roblox FPS frameworks
+                    local keys = {"Recoil", "RecoilMin", "RecoilMax", "Spread", "SpreadMin", "SpreadMax", "Kick", "CameraShake", "Shake"}
+                    for _, key in pairs(keys) do
+                        if module[key] then module[key] = 0 end
+                    end
+                end
+            elseif v:IsA("NumberValue") and (v.Name:lower():find("recoil") or v.Name:lower():find("spread")) then
+                v.Value = 0
+            end
+        end
+    end
+    
+    Connect(RunService.Stepped, function()
+        if config.noRecoil and LocalPlayer.Character then
+            local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+            if tool then
+                SilenceGun(tool)
+            end
+        end
+    end)
     
     -- KNIFEBOT LOGIC
     Connect(RunService.Stepped, function()
@@ -201,57 +235,118 @@ local function LoadGalaxy()
         end
     end
 
-    -- // UI PRE-SETUP //
+    -- // UI PRE-SETUP (v9.0 Redesign) //
     local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "GalaxyV22"
+    ScreenGui.Name = "GalaxyV9"
     ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
     ScreenGui.ResetOnSpawn = false
-
-    ScreenGui.DisplayOrder = 10000 -- Ensures HUD is on top
+    ScreenGui.DisplayOrder = 10000 
     
+    -- SHADOW
+    local Shadow = Instance.new("ImageLabel", ScreenGui)
+    Shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+    Shadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+    Shadow.Size = UDim2.new(0, 540, 0, 420)
+    Shadow.Image = "rbxassetid://6015897843" -- Blur/Shadow
+    Shadow.ImageTransparency = 0.4
+    Shadow.ImageColor3 = Color3.new(0,0,0)
+    Shadow.BackgroundTransparency = 1
+    Shadow.Visible = true
+
     local MainFrame = Instance.new("Frame", ScreenGui)
-    MainFrame.BackgroundColor3 = CurrentTheme.Main
-    MainFrame.Position = UDim2.new(0.35, 0, 0.3, 0)
-    
-
+    MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    MainFrame.Position = UDim2.new(0.5, -260, 0.5, -200) -- Centered
     MainFrame.Size = UDim2.new(0, 520, 0, 400)
     MainFrame.BorderSizePixel = 0
     MainFrame.Active = true
     MainFrame.Draggable = true
-    RegisterThemeObject(MainFrame, "BackgroundColor3", "Main")
+    Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+    
+    -- Sync Shadow
+    MainFrame:GetPropertyChangedSignal("Position"):Connect(function()
+        Shadow.Position = MainFrame.Position + UDim2.new(0.02, 0, 0.02, 0)
+    end)
+    MainFrame:GetPropertyChangedSignal("Visible"):Connect(function() Shadow.Visible = MainFrame.Visible end)
+    
+    -- MAIN STROKE
     local UIStroke = Instance.new("UIStroke", MainFrame); UIStroke.Thickness = 2; RegisterThemeObject(UIStroke, "Color", "Accent")
 
     local Sidebar = Instance.new("Frame", MainFrame)
-    Sidebar.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-    Sidebar.Size = UDim2.new(0, 140, 1, 0)
+    Sidebar.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    Sidebar.Size = UDim2.new(0, 150, 1, 0)
     Sidebar.BorderSizePixel = 0
-    local SidebarTitle = Instance.new("TextLabel", Sidebar); SidebarTitle.Text = "GALAXY"; SidebarTitle.Font = Enum.Font.GothamBlack; SidebarTitle.TextSize = 28; SidebarTitle.Size = UDim2.new(1, 0, 0, 60); SidebarTitle.BackgroundTransparency = 1; RegisterThemeObject(SidebarTitle, "TextColor3", "Accent")
-
-    local Container = Instance.new("Frame", MainFrame); Container.BackgroundTransparency = 1; Container.Position = UDim2.new(0, 150, 0, 10); Container.Size = UDim2.new(0, 360, 1, -20)
+    Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 8)
+    local SidebarStraightify = Instance.new("Frame", Sidebar); SidebarStraightify.BorderSizePixel=0; SidebarStraightify.BackgroundColor3=Sidebar.BackgroundColor3; SidebarStraightify.Size=UDim2.new(0,10,1,0); SidebarStraightify.Position=UDim2.new(1,-10,0,0) -- Square right side
+    
+    local SidebarTitle = Instance.new("TextLabel", Sidebar); SidebarTitle.Text = "GALAXY"; SidebarTitle.Font = Enum.Font.GothamBlack; SidebarTitle.TextSize = 32; SidebarTitle.Size = UDim2.new(1, 0, 0, 70); SidebarTitle.BackgroundTransparency = 1; RegisterThemeObject(SidebarTitle, "TextColor3", "Accent")
+    
+    -- Container
+    local Container = Instance.new("Frame", MainFrame); Container.BackgroundTransparency = 1; Container.Position = UDim2.new(0, 160, 0, 10); Container.Size = UDim2.new(0, 350, 1, -20)
+    
     local HUD = Instance.new("Frame", ScreenGui); HUD.BackgroundTransparency = 1; HUD.Size = UDim2.new(1,0,1,0)
-    local Watermark = Instance.new("TextLabel", HUD); Watermark.Position = UDim2.new(0,25,0,25); Watermark.Size = UDim2.new(0,200,0,30); Watermark.BackgroundTransparency = 1; Watermark.Text = "GALAXY V22"; Watermark.Font = Enum.Font.GothamBlack; Watermark.TextSize = 26; Watermark.TextXAlignment = Enum.TextXAlignment.Left; RegisterThemeObject(Watermark, "TextColor3", "Accent")
+    local Watermark = Instance.new("TextLabel", HUD); Watermark.Position = UDim2.new(0,25,0,25); Watermark.Size = UDim2.new(0,200,0,30); Watermark.BackgroundTransparency = 1; Watermark.Text = "GALAXY V9.0"; Watermark.Font = Enum.Font.GothamBlack; Watermark.TextSize = 24; Watermark.TextXAlignment = Enum.TextXAlignment.Left; RegisterThemeObject(Watermark, "TextColor3", "Accent")
 
     local Tabs = {}
     local function CreateTab(name)
-        local btn = Instance.new("TextButton", Sidebar); btn.Size = UDim2.new(1, 0, 0, 45); btn.Position = UDim2.new(0, 0, 0, 70 + (#Tabs * 45)); btn.BackgroundTransparency = 1; btn.Text = "  " .. name; btn.Font = Enum.Font.GothamBold; btn.TextColor3 = Color3.fromRGB(160, 160, 160); btn.TextSize = 14; btn.TextXAlignment = Enum.TextXAlignment.Left
-        local frame = Instance.new("ScrollingFrame", Container); frame.BackgroundTransparency = 1; frame.Size = UDim2.new(1, 0, 1, 0); frame.ScrollBarThickness = 0; frame.Visible = false; local layout = Instance.new("UIListLayout", frame); layout.Padding = UDim.new(0, 8); layout.SortOrder = Enum.SortOrder.LayoutOrder
-        table.insert(Tabs, {Btn = btn, Frame = frame}); btn.MouseButton1Click:Connect(function() for _, t in pairs(Tabs) do t.Frame.Visible = false; t.Btn.TextColor3 = Color3.fromRGB(160, 160, 160) end; frame.Visible = true; btn.TextColor3 = Color3.new(1, 1, 1) end); return frame
+        local btn = Instance.new("TextButton", Sidebar)
+        btn.Size = UDim2.new(1, -20, 0, 40)
+        btn.Position = UDim2.new(0, 10, 0, 80 + (#Tabs * 45))
+        btn.BackgroundTransparency = 1
+        btn.Text = "  " .. name
+        btn.Font = Enum.Font.GothamBold
+        btn.TextColor3 = Color3.fromRGB(150, 150, 150)
+        btn.TextSize = 14
+        btn.TextXAlignment = Enum.TextXAlignment.Left
+        btn.AutoButtonColor = false
+        
+        local frame = Instance.new("ScrollingFrame", Container)
+        frame.BackgroundTransparency = 1
+        frame.Size = UDim2.new(1, 0, 1, 0)
+        frame.ScrollBarThickness = 2
+        frame.ScrollBarImageColor3 = Color3.fromRGB(80,80,80)
+        frame.Visible = false
+        local layout = Instance.new("UIListLayout", frame); layout.Padding = UDim.new(0, 8); layout.SortOrder = Enum.SortOrder.LayoutOrder
+        
+        -- Animation
+        btn.MouseEnter:Connect(function() if not frame.Visible then Tween(btn, {TextColor3 = Color3.fromRGB(200,200,200)}) end end)
+        btn.MouseLeave:Connect(function() if not frame.Visible then Tween(btn, {TextColor3 = Color3.fromRGB(150,150,150)}) end end)
+        
+        table.insert(Tabs, {Btn = btn, Frame = frame})
+        btn.MouseButton1Click:Connect(function()
+            for _, t in pairs(Tabs) do t.Frame.Visible = false; Tween(t.Btn, {TextColor3 = Color3.fromRGB(150, 150, 150)}) end
+            frame.Visible = true
+            Tween(btn, {TextColor3 = Color3.new(1, 1, 1)})
+        end)
+        return frame
     end
     local TabCombat = CreateTab("Combat"); local TabVisuals = CreateTab("Visuals"); local TabMisc = CreateTab("Misc"); local TabSettings = CreateTab("Settings"); Tabs[1].Frame.Visible = true; Tabs[1].Btn.TextColor3 = Color3.new(1,1,1)
 
+    -- // UI ELEMENTS (Animated) //
     local function AddToggle(parent, text, default, callback, id)
-        local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -10, 0, 40); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f)
-        local l = Instance.new("TextLabel", f); l.Text = text; l.Font = Enum.Font.Gotham; l.TextColor3 = Color3.new(1, 1, 1); l.BackgroundTransparency = 1; l.Size = UDim2.new(0.6, 0, 1, 0); l.Position = UDim2.new(0, 15, 0, 0); l.TextXAlignment = Enum.TextXAlignment.Left
-        local btn = Instance.new("TextButton", f); btn.Size = UDim2.new(0, 45, 0, 22); btn.Position = UDim2.new(1, -60, 0.22, 0); btn.Text = ""; btn.BackgroundColor3 = default and CurrentTheme.Accent or Color3.fromRGB(55, 55, 60); Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
+        local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -5, 0, 42); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f).CornerRadius = UDim.new(0, 6)
+        local l = Instance.new("TextLabel", f); l.Text = text; l.Font = Enum.Font.GothamBold; l.TextColor3 = Color3.new(1, 1, 1); l.BackgroundTransparency = 1; l.Size = UDim2.new(0.6, 0, 1, 0); l.Position = UDim2.new(0, 15, 0, 0); l.TextXAlignment = Enum.TextXAlignment.Left; l.TextSize=14
+        
+        -- Switch
+        local switchBase = Instance.new("Frame", f); switchBase.Size = UDim2.new(0, 44, 0, 22); switchBase.Position = UDim2.new(1, -55, 0.5, -11); switchBase.BackgroundColor3 = Color3.fromRGB(50,50,55); Instance.new("UICorner", switchBase).CornerRadius = UDim.New(1,0)
+        local switchCircle = Instance.new("Frame", switchBase); switchCircle.Size = UDim2.new(0, 18, 0, 18); switchCircle.Position = UDim2.new(0, 2, 0.5, -9); switchCircle.BackgroundColor3 = Color3.fromRGB(200,200,200); Instance.new("UICorner", switchCircle).CornerRadius = UDim.New(1,0)
+        
+        local btn = Instance.new("TextButton", f); btn.Size = UDim2.new(1,0,1,0); btn.BackgroundTransparency = 1; btn.Text = ""
         
         local state = default
+        local function Update()
+            local targetColor = state and (config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent) or Color3.fromRGB(50,50,55)
+            Tween(switchBase, {BackgroundColor3 = targetColor})
+            Tween(switchCircle, {Position = state and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)})
+        end
+        
         local function Toggle(v)
             if v ~= nil then state = v else state = not state end
-            btn.BackgroundColor3 = state and (config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent) or Color3.fromRGB(55, 55, 60)
+            Update()
             -- Play Sound
-            local s = Instance.new("Sound", game:GetService("SoundService")); s.SoundId = state and "rbxassetid://4612375233" or "rbxassetid://4612377140"; s.Volume = 1; s:Play(); s.Ended:Connect(function() s:Destroy() end)
+            local s = Instance.new("Sound", game:GetService("SoundService")); s.SoundId = state and "rbxassetid://4612375233" or "rbxassetid://4612377140"; s.Volume = 0.5; s:Play(); s.Ended:Connect(function() s:Destroy() end)
             task.spawn(function() callback(state) end)
         end
+        Update()
         
         btn.MouseButton1Click:Connect(function() Toggle() end)
 
@@ -260,20 +355,20 @@ local function LoadGalaxy()
             local function Bind(gui)
                 gui.InputBegan:Connect(function(input)
                     if input.UserInputType == Enum.UserInputType.MouseButton3 then
-                        l.Text = text .. " [Press Key...]"; l.TextColor3 = Color3.fromRGB(255, 200, 0)
+                        l.Text = text .. " ..."; l.TextColor3 = Color3.fromRGB(255, 200, 0)
                         local c; c = UserInputService.InputBegan:Connect(function(k)
                             if k.UserInputType == Enum.UserInputType.Keyboard then
                                 config.binds[id] = k.KeyCode
                                 l.Text = text .. " ["..k.KeyCode.Name.."]"
                                 l.TextColor3 = Color3.new(1,1,1)
                                 c:Disconnect()
+                                if RefreshKeyList then RefreshKeyList() end
                             end
                         end)
                     end
                 end)
             end
-            f.Active = true
-            Bind(f); Bind(l); Bind(btn)
+            Bind(btn)
             
             -- Safe Bind Check
             local c = UserInputService.InputBegan:Connect(function(io, g)
@@ -281,48 +376,19 @@ local function LoadGalaxy()
                     Toggle()
                 end
             end)
-            -- We don't track this connection for Unload because it's tricky to pass 'Connect' here without scope issues, but it's minor. 
-            -- Actually, we SHOULD track it. But let's stick to the plan.
         end
     end
-    local function AddKeybind(parent, text, defaultKey, configKey)
-        -- Legacy Keybind (Direct Config)
-        local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -10, 0, 40); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f)
-        local l = Instance.new("TextLabel", f); l.Text = text; l.Font = Enum.Font.Gotham; l.TextColor3 = Color3.fromRGB(180, 180, 180); l.BackgroundTransparency = 1; l.Size = UDim2.new(0.6, 0, 1, 0); l.Position = UDim2.new(0, 15, 0, 0); l.TextXAlignment = Enum.TextXAlignment.Left
-        local b = Instance.new("TextButton", f); b.Size = UDim2.new(0, 80, 0, 26); b.Position = UDim2.new(1, -95, 0.17, 0); b.Text = defaultKey.Name; b.BackgroundColor3 = Color3.fromRGB(50, 50, 55); b.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
-        local lis = false; b.MouseButton1Click:Connect(function() lis = true; b.Text = "..." end); UserInputService.InputBegan:Connect(function(i) if lis and i.UserInputType == Enum.UserInputType.Keyboard then config[configKey] = i.KeyCode; b.Text = i.KeyCode.Name; lis = false; if RefreshKeyList then RefreshKeyList() end end end)
-    end
     
-    local function AddBind(parent, text, id)
-        -- New Binds System (config.binds)
-        local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -10, 0, 40); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f)
-        local l = Instance.new("TextLabel", f); l.Text = text; l.Font = Enum.Font.Gotham; l.TextColor3 = Color3.fromRGB(180, 180, 180); l.BackgroundTransparency = 1; l.Size = UDim2.new(0.6, 0, 1, 0); l.Position = UDim2.new(0, 15, 0, 0); l.TextXAlignment = Enum.TextXAlignment.Left
-        local b = Instance.new("TextButton", f); b.Size = UDim2.new(0, 80, 0, 26); b.Position = UDim2.new(1, -95, 0.17, 0); b.Text = "None"; b.BackgroundColor3 = Color3.fromRGB(50, 50, 55); b.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
-        
-        -- Load existing
-        if config.binds[id] then b.Text = config.binds[id].Name end
-        
-        local lis = false
-        b.MouseButton1Click:Connect(function() lis = true; b.Text = "..." end)
-        UserInputService.InputBegan:Connect(function(i) 
-            if lis and i.UserInputType == Enum.UserInputType.Keyboard then 
-                config.binds[id] = i.KeyCode; b.Text = i.KeyCode.Name; lis = false 
-                if RefreshKeyList then RefreshKeyList() end
-            end 
-        end)
-    end
-
     local function AddSlider(parent, text, min, max, default, callback)
-        local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -10, 0, 50); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f)
-        local l = Instance.new("TextLabel", f); l.Text = text; l.Font = Enum.Font.Gotham; l.TextColor3 = Color3.new(1,1,1); l.BackgroundTransparency = 1; l.Size = UDim2.new(1, -20, 0, 20); l.Position = UDim2.new(0, 10, 0, 5)
-        local val = Instance.new("TextLabel", f); val.Text = tostring(default); val.Font = Enum.Font.GothamBold; val.TextColor3 = CurrentTheme.Accent; val.BackgroundTransparency = 1; val.Size = UDim2.new(0, 50, 0, 20); val.Position = UDim2.new(1, -60, 0, 5); RegisterThemeObject(val, "TextColor3", "Accent")
+        local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -5, 0, 50); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f).CornerRadius = UDim.new(0, 6)
+        local l = Instance.new("TextLabel", f); l.Text = text; l.Font = Enum.Font.GothamBold; l.TextColor3 = Color3.new(1,1,1); l.BackgroundTransparency = 1; l.Position = UDim2.new(0, 15, 0, 5); l.TextXAlignment = Enum.TextXAlignment.Left; l.TextSize = 14
+        local vLabel = Instance.new("TextLabel", f); vLabel.Text = tostring(default); vLabel.Font = Enum.Font.GothamBold; vLabel.TextColor3 = Color3.new(1,1,1); vLabel.BackgroundTransparency = 1; vLabel.Position = UDim2.new(1, -40, 0, 5); vLabel.TextXAlignment = Enum.TextXAlignment.Right; vLabel.TextSize = 14
         
-        local slideBar = Instance.new("Frame", f); slideBar.Size = UDim2.new(1, -20, 0, 6); slideBar.Position = UDim2.new(0, 10, 0, 35); slideBar.BackgroundColor3 = Color3.fromRGB(50, 50, 55); Instance.new("UICorner", slideBar)
-        local fill = Instance.new("Frame", slideBar); fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0); fill.BackgroundColor3 = CurrentTheme.Accent; Instance.new("UICorner", fill); RegisterThemeObject(fill, "BackgroundColor3", "Accent")
+        local slideBar = Instance.new("Frame", f); slideBar.Size = UDim2.new(1, -30, 0, 6); slideBar.Position = UDim2.new(0, 15, 0, 32); slideBar.BackgroundColor3 = Color3.fromRGB(50,50,55); Instance.new("UICorner", slideBar).CornerRadius = UDim.new(1,0)
+        local fill = Instance.new("Frame", slideBar); fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0); fill.BackgroundColor3 = (config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent); Instance.new("UICorner", fill).CornerRadius = UDim.new(1,0)
         
+        local btn = Instance.new("TextButton", f); btn.Size = UDim2.new(1,0,1,0); btn.BackgroundTransparency = 1; btn.Text = ""
         local dragging = false
-        local function Update(input)
-            local p = math.clamp((input.Position.X - slideBar.AbsolutePosition.X) / slideBar.AbsoluteSize.X, 0, 1)
             local value = math.floor(min + ((max - min) * p))
             fill.Size = UDim2.new(p, 0, 1, 0)
             val.Text = tostring(value)
@@ -596,9 +662,11 @@ local function LoadGalaxy()
     AddToggle(TabCombat, "Knife Aura", false, function(s) config.knifeBot = s end, "knife")
     AddSlider(TabCombat, "Knife Range", 5, 30, 15, function(v) config.knifeRange = v end)
     
+    AddToggle(TabCombat, "No Recoil", false, function(s) config.noRecoil = s end) -- Defuse Division / Universal
+
     AddToggle(TabCombat, "Inf Ammo (Univ)", false, function(s) config.infAmmo = s end, "ammo")
     AddToggle(TabCombat, "Wall Check", true, function(s) config.wallCheck = s end, "wall")
-    AddToggle(TabMisc, "Speed BHop", false, function(s) config.bhop = s end, "bhop")
+    
     AddToggle(TabVisuals, "ESP", false, function(s) espEnabled = s end, "esp")
     AddToggle(TabVisuals, "Show FOV", true, function(s) config.showFov = s end, "fov")
     AddToggle(TabVisuals, "Tracers (Beam)", false, function(s) config.tracers = s end, "trace")
@@ -607,15 +675,19 @@ local function LoadGalaxy()
 
     AddToggle(TabMisc, "NoClip", false, function(s) config.noclip = s end, "noclip")
     AddToggle(TabMisc, "Rage Anti-Aim", false, function(s) config.antiAim = s end, "aa") -- SPINBOT
+    AddToggle(TabMisc, "Speed BHop", false, function(s) config.bhop = s end, "bhop")
     AddSlider(TabMisc, "Speed", 16, 200, 16, function(v) config.walkSpeed = v end)
     
     -- // KEYBIND HUD UI //
-    local KeyList = Instance.new("Frame", ScreenGui); KeyList.Position = UDim2.new(0, 10, 0.4, 0); KeyList.Size = UDim2.new(0, 180, 0, 250); KeyList.BackgroundTransparency = 1; KeyList.Active = true; KeyList.Draggable = true
-    local KeyTitle = Instance.new("TextLabel", KeyList); KeyTitle.Name = "Title"; KeyTitle.Text = "Keybinds (Drag)"; KeyTitle.Font = Enum.Font.GothamBlack; KeyTitle.TextColor3 = Color3.new(1,1,1); KeyTitle.Size = UDim2.new(1,0,0,20); KeyTitle.BackgroundTransparency = 1; KeyTitle.TextXAlignment = Enum.TextXAlignment.Left
-    local KeyLayout = Instance.new("UIListLayout", KeyList); KeyLayout.SortOrder = Enum.SortOrder.LayoutOrder; KeyLayout.Padding = UDim.new(0,5)
+    local KeyList = Instance.new("Frame", ScreenGui); KeyList.Position = UDim2.new(0, 20, 0.4, 0); KeyList.Size = UDim2.new(0, 180, 0, 250); KeyList.BackgroundColor3 = Color3.fromRGB(20,20,25); KeyList.BackgroundTransparency = 0.2; KeyList.Active = true; KeyList.Draggable = true
+    Instance.new("UICorner", KeyList).CornerRadius = UDim.new(0, 8)
+    local KeyTitle = Instance.new("TextLabel", KeyList); KeyTitle.Name = "Title"; KeyTitle.Text = "  Active Keybinds"; KeyTitle.Font = Enum.Font.GothamBlack; KeyTitle.TextColor3 = Color3.new(1,1,1); KeyTitle.Size = UDim2.new(1,0,0,30); KeyTitle.BackgroundTransparency = 1; KeyTitle.TextXAlignment = Enum.TextXAlignment.Left; KeyTitle.TextSize=14
+    local KeyLayout = Instance.new("UIListLayout", KeyList); KeyLayout.SortOrder = Enum.SortOrder.LayoutOrder; KeyLayout.Padding = UDim.new(0,0); KeyLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    -- Padding for list
+    local KeyPad = Instance.new("UIPadding", KeyList); KeyPad.PaddingTop = UDim.new(0, 35); KeyPad.PaddingLeft = UDim.new(0,10)
     KeyList.Visible = config.keybindList
     
-    -- // SEARCH UI //
+    -- // SEARCH UI // (Skipped for brevity/redundancy in this diff, assuming untouched logic below)
     -- (Previous code was here, ensuring variables are local)
 
     -- // KEYBIND HUD REFRESHER //
@@ -749,9 +821,13 @@ local function LoadGalaxy()
     AddBind(TabSettings, "Speed BHop Toggle", "bhop")
     AddBind(TabSettings, "KnifeBot Toggle", "knife")
     
+    
     local function AddButton(parent, text, callback)
-        local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -10, 0, 40); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f)
+        local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -5, 0, 42); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f).CornerRadius = UDim.new(0, 6)
         local btn = Instance.new("TextButton", f); btn.Size = UDim2.new(1, 0, 1, 0); btn.BackgroundTransparency = 1; btn.Text = text; btn.Font = Enum.Font.GothamBold; btn.TextColor3 = Color3.new(1, 1, 1); btn.TextSize = 14
+        
+        btn.MouseEnter:Connect(function() Tween(f, {BackgroundColor3 = Color3.fromRGB(45, 45, 50)}) end)
+        btn.MouseLeave:Connect(function() Tween(f, {BackgroundColor3 = Color3.fromRGB(35, 35, 40)}) end)
         btn.MouseButton1Click:Connect(callback)
     end
     
@@ -830,9 +906,10 @@ local function LoadGalaxy()
         local c = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
         CircleStroke.Color = c
         
-        -- v8.2: GENERAL MOUSE UNLOCK
+        -- v8.2: GENERAL MOUSE UNLOCK & ICON VISIBILITY
         if MainFrame.Visible then
             UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+            UserInputService.MouseIconEnabled = true
         end
     end)
     

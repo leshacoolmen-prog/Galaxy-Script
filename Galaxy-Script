@@ -249,7 +249,7 @@ local function LoadGalaxy()
         local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -10, 0, 40); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f)
         local l = Instance.new("TextLabel", f); l.Text = text; l.Font = Enum.Font.Gotham; l.TextColor3 = Color3.fromRGB(180, 180, 180); l.BackgroundTransparency = 1; l.Size = UDim2.new(0.6, 0, 1, 0); l.Position = UDim2.new(0, 15, 0, 0); l.TextXAlignment = Enum.TextXAlignment.Left
         local b = Instance.new("TextButton", f); b.Size = UDim2.new(0, 80, 0, 26); b.Position = UDim2.new(1, -95, 0.17, 0); b.Text = defaultKey.Name; b.BackgroundColor3 = Color3.fromRGB(50, 50, 55); b.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
-        local lis = false; b.MouseButton1Click:Connect(function() lis = true; b.Text = "..." end); UserInputService.InputBegan:Connect(function(i) if lis and i.UserInputType == Enum.UserInputType.Keyboard then config[configKey] = i.KeyCode; b.Text = i.KeyCode.Name; lis = false end end)
+        local lis = false; b.MouseButton1Click:Connect(function() lis = true; b.Text = "..." end); UserInputService.InputBegan:Connect(function(i) if lis and i.UserInputType == Enum.UserInputType.Keyboard then config[configKey] = i.KeyCode; b.Text = i.KeyCode.Name; lis = false; if RefreshKeyList then RefreshKeyList() end end end)
     end
     
     local function AddBind(parent, text, id)
@@ -266,6 +266,7 @@ local function LoadGalaxy()
         UserInputService.InputBegan:Connect(function(i) 
             if lis and i.UserInputType == Enum.UserInputType.Keyboard then 
                 config.binds[id] = i.KeyCode; b.Text = i.KeyCode.Name; lis = false 
+                if RefreshKeyList then RefreshKeyList() end
             end 
         end)
     end
@@ -564,14 +565,62 @@ local function LoadGalaxy()
     AddToggle(TabMisc, "Rage Anti-Aim", false, function(s) config.antiAim = s end, "aa") -- SPINBOT
     AddSlider(TabMisc, "Speed", 16, 200, 16, function(v) config.walkSpeed = v end)
     
-    -- Keybinds HUD UI
-    local KeyList = Instance.new("Frame", ScreenGui); KeyList.Position = UDim2.new(0, 10, 0.4, 0); KeyList.Size = UDim2.new(0, 150, 0, 200); KeyList.BackgroundTransparency = 1
-    local KeyTitle = Instance.new("TextLabel", KeyList); KeyTitle.Text = "Keybinds"; KeyTitle.Font = Enum.Font.GothamBlack; KeyTitle.TextColor3 = Color3.new(1,1,1); KeyTitle.Size = UDim2.new(1,0,0,20); KeyTitle.BackgroundTransparency = 1; KeyTitle.TextXAlignment = Enum.TextXAlignment.Left
-    local KeyLayout = Instance.new("UIListLayout", KeyList); KeyLayout.SortOrder = Enum.SortOrder.LayoutOrder; KeyLayout.Padding = UDim.new(0,2)
-    -- This list updates manually or we just show active features? 
-    -- For now just Static Title. Users can see toggles.
-    -- Actually better to show active states if we have time, but user just asked for "Keybinds HUD left middle".
-    KeyList.Visible = config.keybindList
+    -- // KEYBIND HUD REFRESHER //
+    local function RefreshKeyList()
+        if not KeyList then return end
+        -- Clear old
+        for _, c in pairs(KeyList:GetChildren()) do
+            if c:IsA("TextLabel") and c.Name ~= "Title" then c:Destroy() end
+        end
+        
+        -- Helper to add
+        local function AddListEntry(name, key)
+            if not key or key.Name == "Unknown" then return end
+            local t = Instance.new("TextLabel", KeyList)
+            t.Name = name
+            t.Size = UDim2.new(1, -10, 0, 20)
+            t.BackgroundTransparency = 1
+            t.Text = name .. " [" .. key.Name .. "]"
+            t.Font = Enum.Font.GothamSemibold
+            t.TextColor3 = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
+            t.TextXAlignment = Enum.TextXAlignment.Left
+        end
+        
+        -- Static Binds
+        AddListEntry("Menu", config.menuKey)
+        AddListEntry("Aimbot", config.aimKey)
+        AddListEntry("Trigger", config.triggerKey)
+        
+        -- Dynamic Binds
+        for id, k in pairs(config.binds) do
+            -- Find readable name based on ID? We used ID as key.
+            -- Mapping IDs to Names manually or storing Name in binds?
+            -- Current AddBind stores just KeyCode in config.binds[id].
+            -- We need a Name map.
+            local names = {
+                esp="ESP", fly="Fly", noclip="NoClip", tp="3rd Person", 
+                aa="Anti-Aim", trace="Tracers", bhop="BunnyHop"
+            }
+            AddListEntry(names[id] or id, k)
+        end
+    end
+
+    -- Update Keybinds HUD UI
+    KeyList.Size = UDim2.new(0, 180, 0, 250); KeyList.Active = true; KeyList.Draggable = true
+    KeyList:FindFirstChild("UIListLayout"):Destroy() -- Reset layout
+    local KeyLayout = Instance.new("UIListLayout", KeyList); KeyLayout.SortOrder = Enum.SortOrder.LayoutOrder; KeyLayout.Padding = UDim.new(0,5)
+    KeyTitle.Name = "Title"; KeyTitle.Text = "Keybinds (Drag)"
+    RefreshKeyList()
+    
+    -- Hook into Theme Update
+    game:GetService("RunService").RenderStepped:Connect(function()
+        if KeyList.Visible and config.theme == "Rainbow" then
+             for _, c in pairs(KeyList:GetChildren()) do
+                 if c:IsA("TextLabel") then c.TextColor3 = rainbowColor end
+             end
+        end
+    end)
+
     AddToggle(TabSettings, "Show Keybind List", true, function(s) KeyList.Visible = s end)
     AddSlider(TabMisc, "Jump", 50, 300, 50, function(v) config.jumpPower = v end)
     
@@ -625,43 +674,75 @@ local function LoadGalaxy()
     AddKeybind(TabSettings, "Aimbot Bind", config.aimKey, "aimKey")
     AddKeybind(TabSettings, "Trigger Bind", config.triggerKey, "triggerKey")
     
+    -- Explicit Function Binds (Refresh HUD on change)
+    AddBind(TabSettings, "ESP Toggle", "esp")
+    AddBind(TabSettings, "Fly Toggle", "fly")
+    AddBind(TabSettings, "NoClip Toggle", "noclip")
+    AddBind(TabSettings, "Third Person Toggle", "tp")
+    AddBind(TabSettings, "Anti-Aim Toggle", "aa")
+    AddBind(TabSettings, "Tracers Toggle", "trace")
+    AddBind(TabSettings, "Speed BHop Toggle", "bhop")
+    
     local function AddButton(parent, text, callback)
         local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -10, 0, 40); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f)
         local btn = Instance.new("TextButton", f); btn.Size = UDim2.new(1, 0, 1, 0); btn.BackgroundTransparency = 1; btn.Text = text; btn.Font = Enum.Font.GothamBold; btn.TextColor3 = Color3.new(1, 1, 1); btn.TextSize = 14
         btn.MouseButton1Click:Connect(callback)
     end
     
-    AddButton(TabSettings, "Save Config", function()
-        local data = {}
-        for k, v in pairs(config) do
-            if typeof(v) == "EnumItem" then data[k] = {EnumType = tostring(v.EnumType), Name = v.Name}
-            else data[k] = v end
+    -- // DEEP SERIALIZATION (Fixes Config Saving) //
+    local function Serialize(tbl)
+        local res = {}
+        for k, v in pairs(tbl) do
+            if type(v) == "table" then
+                res[k] = Serialize(v)
+            elseif typeof(v) == "EnumItem" then
+                res[k] = {__ENUM = tostring(v)}
+            else
+                res[k] = v
+            end
         end
+        return res
+    end
+    
+    local function Deserialize(tbl)
+        local res = {}
+        for k, v in pairs(tbl) do
+            if type(v) == "table" then
+                if v.__ENUM then
+                     -- Parse Enum string "Enum.KeyCode.E"
+                     local parts = v.__ENUM:split(".") -- {"Enum", "KeyCode", "E"}
+                     res[k] = Enum[parts[2]][parts[3]]
+                else
+                     res[k] = Deserialize(v)
+                end
+            else
+                res[k] = v
+            end
+        end
+        return res
+    end
+
+    AddButton(TabSettings, "Save Config", function()
+        local data = Serialize(config)
         writefile("galaxy_cfg.json", HttpService:JSONEncode(data))
-        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Galaxy", Text = "Config Saved", Duration = 2})
+        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Galaxy", Text = "Config Saved Successfully", Duration = 2})
     end)
     
     AddButton(TabSettings, "Load Config", function()
         if isfile("galaxy_cfg.json") then
             local data = HttpService:JSONDecode(readfile("galaxy_cfg.json"))
-            for k, v in pairs(data) do
-                if type(v) == "table" and v.EnumType then
-                    config[k] = Enum[tostring(v.EnumType)][v.Name]
-                else
-                    config[k] = v
-                end
+            local loaded = Deserialize(data)
+            for k, v in pairs(loaded) do
+                config[k] = v
             end
-            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Galaxy", Text = "Config Loaded! Reboot Script to Apply fully.", Duration = 5})
-            -- Note: Full UI refresh requires rebuilding UI or complex binding. 
-            -- Simple solution: User re-injects or we just update background logic.
-            -- Visual toggles won't update instantly in this simple system without more code.
+            RefreshKeyList() -- Update UI
+            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Galaxy", Text = "Config Loaded!", Duration = 3})
         end
     end)
 
-
-
     AddButton(TabSettings, "UNLOAD CHEAT", function()
         for _, c in pairs(Connections) do c:Disconnect() end
+        RunService:UnbindFromRenderStep("GalaxyTP") 
         ScreenGui:Destroy()
         -- Reset Fly
         if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
@@ -674,7 +755,19 @@ local function LoadGalaxy()
     local Circle = Instance.new("ImageLabel", ScreenGui); Circle.Image = "rbxassetid://3570695787"; Circle.BackgroundTransparency = 1; Circle.ImageTransparency = 0.5
     Connect(RunService.RenderStepped, function() Circle.Visible = config.showFov and aimEnabled; Circle.Position = UDim2.new(0, Mouse.X - config.fovSize, 0, Mouse.Y - config.fovSize); Circle.Size = UDim2.new(0, config.fovSize*2, 0, config.fovSize*2); if config.theme == "Rainbow" then Circle.ImageColor3 = rainbowColor end end)
     
-    game:GetService("StarterGui"):SetCore("SendNotification", {Title = "GALAXY V22", Text = "All-Seeing Eye Loaded", Duration = 5})
+    game:GetService("StarterGui"):SetCore("SendNotification", {Title = "GALAXY V8.0", Text = "All-Seeing Eye Loaded", Duration = 5})
 end
 
-KeyBtn.MouseButton1Click:Connect(function() if KeyBox.Text == "2026" then KeySystemGui:Destroy(); LoadGalaxy() end end)
+-- // PERSISTENT AUTH //
+if isfile("galaxy.auth") and readfile("galaxy.auth") == "2026" then
+    KeySystemGui:Destroy()
+    LoadGalaxy()
+else
+    KeyBtn.MouseButton1Click:Connect(function() 
+        if KeyBox.Text == "2026" then 
+            writefile("galaxy.auth", "2026") -- Save Token
+            KeySystemGui:Destroy() 
+            LoadGalaxy() 
+        end 
+    end)
+end

@@ -415,6 +415,10 @@ local function LoadGalaxy()
         local idx = 1; btn.MouseButton1Click:Connect(function() idx = idx + 1; if idx > #options then idx = 1 end; btn.Text = options[idx]; callback(options[idx]) end)
     end
 
+    local function AddBind(parent, text, id)
+       AddToggle(parent, text, false, function(s) end, id) -- Uses MiddleClick logic inside AddToggle
+    end
+
     -- // ULTIMATE UNIVERSAL SCANNER (HYBRID) //
     local TargetCache = {} -- Used for NPCs/Entities in "All" mode
     local PlayerCache = {} -- Used for Players (Instant update)

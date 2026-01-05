@@ -596,10 +596,11 @@ local function LoadGalaxy()
             if not key or typeof(key) ~= "EnumItem" then return end
             local t = Instance.new("TextLabel", KeyList)
             t.Name = name
-            t.Size = UDim2.new(1, -10, 0, 20)
+            t.Size = UDim2.new(1, -10, 0, 24)
             t.BackgroundTransparency = 1
             t.Text = name .. " [" .. key.Name .. "]"
-            t.Font = Enum.Font.GothamSemibold
+            t.Font = Enum.Font.GothamBold
+            t.TextSize = 16
             t.TextColor3 = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
             t.TextXAlignment = Enum.TextXAlignment.Left
         end
@@ -767,10 +768,20 @@ local function LoadGalaxy()
     end)
 
     Connect(UserInputService.InputBegan, function(i, g) if not g and i.KeyCode == config.menuKey then MainFrame.Visible = not MainFrame.Visible end end)
-    local Circle = Instance.new("ImageLabel", ScreenGui); Circle.Image = "rbxassetid://3570695787"; Circle.BackgroundTransparency = 1; Circle.ImageTransparency = 0.5
-    Connect(RunService.RenderStepped, function() Circle.Visible = config.showFov and aimEnabled; Circle.Position = UDim2.new(0, Mouse.X - config.fovSize, 0, Mouse.Y - config.fovSize); Circle.Size = UDim2.new(0, config.fovSize*2, 0, config.fovSize*2); if config.theme == "Rainbow" then Circle.ImageColor3 = rainbowColor end end)
     
-    game:GetService("StarterGui"):SetCore("SendNotification", {Title = "GALAXY V8.0", Text = "All-Seeing Eye Loaded", Duration = 5})
+    local Circle = Instance.new("Frame", ScreenGui); Circle.BackgroundTransparency = 1; Circle.BorderSizePixel = 0
+    local CircleStroke = Instance.new("UIStroke", Circle); CircleStroke.Thickness = 2
+    local CircleCorner = Instance.new("UICorner", Circle); CircleCorner.CornerRadius = UDim.new(1,0)
+    
+    Connect(RunService.RenderStepped, function() 
+        Circle.Visible = config.showFov and aimEnabled
+        Circle.Position = UDim2.new(0, Mouse.X - config.fovSize, 0, Mouse.Y - config.fovSize)
+        Circle.Size = UDim2.new(0, config.fovSize*2, 0, config.fovSize*2)
+        local c = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
+        CircleStroke.Color = c
+    end)
+    
+    game:GetService("StarterGui"):SetCore("SendNotification", {Title = "GALAXY V8.1", Text = "All-Seeing Eye Loaded", Duration = 5})
 end
 
 -- // PERSISTENT AUTH //

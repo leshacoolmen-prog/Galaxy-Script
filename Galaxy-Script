@@ -435,111 +435,98 @@ local function LoadGalaxy()
 
     -- // VISUALS //
     local espEnabled = false
-    -- // VISUALS //
-    local espEnabled = false
-    local TracerParams = RaycastParams.new(); TracerParams.FilterType = Enum.RaycastFilterType.Exclude; TracerParams.FilterDescendantsInstances = {LocalPlayer.Character}
-    
+    -- // VISUALS ENGINE (v7.5 REFACTOR) //
+    local VisualsConfig = {Box = nil, Tracer = nil}
+    local function ClearVisuals(char)
+        if char:FindFirstChild("G_Box") then char.G_Box:Destroy() end
+        if char:FindFirstChild("G_Tracer") then char.G_Tracer:Destroy() end
+    end
+
     Connect(RunService.Heartbeat, function()
         local targets = GetTargets()
         
-        -- TRACERS Logic
+        for _, char in pairs(targets) do
+            if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChildOfClass("Humanoid").Health > 0 then
+                local hrp = char.HumanoidRootPart
+                
+                -- [[ BOX ESP (BillboardGui) ]]
+                if config.boxEsp then
+                    if not char:FindFirstChild("G_Box") then
+                        local bb = Instance.new("BillboardGui", char); bb.Name = "G_Box"; bb.Size = UDim2.new(4,0,5.5,0); bb.AlwaysOnTop = true; bb.StudsOffset = Vector3.new(0,0,0)
+                        local f = Instance.new("Frame", bb); f.Size = UDim2.new(1,0,1,0); f.BackgroundTransparency = 1
+                        local s = Instance.new("UIStroke", f); s.Color = rainbowColor; s.Thickness = 1.5; s.Transparency = 0
+                    end
+                    char.G_Box.Frame.UIStroke.Color = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
+                else
+                    if char:FindFirstChild("G_Box") then char.G_Box:Destroy() end
+                end
+
+                -- [[ TRACERS (LineHandleAdornment 3D) ]]
+                if config.tracers then
+                    if not char:FindFirstChild("G_Tracer") then
+                       local l = Instance.new("LineHandleAdornment", char); l.Name = "G_Tracer"; l.Length = 10; l.Thickness = 2; l.Color3 = rainbowColor; l.AlwaysOnTop = true; l.ZIndex = 1
+                    end
+                    local t = char.G_Tracer
+                    t.Adornee = hrp
+                    t.Color3 = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
+                    
+                    -- Calculate 3D Line
+                    -- LineHandleAdornment is relative to Adornee (HRP). We need to point it to Camera.
+                    -- Actually, beams are better for Point A to Point B. But LineHandle is okay if we math it.
+                    -- Let's use simpler CylinderHandleAdornment or just a Beam? A Beam is easiest for "start to end".
+                    -- Switching to Beam for stability.
+                    if not char:FindFirstChild("G_Beam") then
+                        local a0 = Instance.new("Attachment", hrp); a0.Name = "G_Att0"
+                        local a1 = Instance.new("Attachment", LocalPlayer.Character:WaitForChild("HumanoidRootPart")); a1.Name = "G_Att1" -- This needs to be on local player. 
+                        -- Beam needs two attachments. One on enemy, one on self.
+                        -- Actually, 2D Tracers are preferred by users. Let's try the Frame method AGAIN but optimized.
+                        -- The user said "lines bug out". 
+                        -- Let's stick to LineHandleAdornment but point it correctly?
+                        -- Or better: A Beam associated with the Terrain?
+                        -- Let's use the RELIABLE Drawing API check? No, Xeno might not support it well.
+                        -- Let's go back to Frame but with valid visibility checks.
+                    end
+                 else
+                    if char:FindFirstChild("G_Tracer") then char.G_Tracer:Destroy() end
+                 end
+            else
+                ClearVisuals(char)
+            end
+        end
+        
+        -- Drawing TRACERS (2D Frame Optimized) - If config.tracers is true
+        -- We loop again for rendering frames (ScreenGui needs constant update)
         if config.tracers then
             for _, char in pairs(targets) do
                 if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChildOfClass("Humanoid").Health > 0 then
                     local hrp = char.HumanoidRootPart
                     local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-                    
                     if onScreen then
-                        -- Check visibility
-                        local isVis = true
-                        if config.wallCheck then
-                            local r = workspace:Raycast(Camera.CFrame.Position, hrp.Position - Camera.CFrame.Position, TracerParams)
-                            if r and not r.Instance:IsDescendantOf(char) then isVis = false end
+                        if not ScreenGui:FindFirstChild("T_"..char.Name) then
+                            local l = Instance.new("Frame", ScreenGui); l.Name = "T_"..char.Name; l.BorderSizePixel = 0; l.AnchorPoint = Vector2.new(0.5, 0.5)
                         end
-
-                        if isVis then
-                             if not hrp:FindFirstChild("G_Tracer") then
-                                 local l = Instance.new("LineHandleAdornment", hrp); l.Name = "G_Tracer"; l.Length = 0; l.Color3 = rainbowColor; l.AlwaysOnTop = true; l.ZIndex = 1
-                             end
-                             local t = hrp.G_Tracer
-                             t.Adornee = hrp
-                             t.Color3 = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
-                             -- Calculate Line from bottom center to target (Visual trick using Cylinder/LineHandle is tricky in 2D, but LineHandle is 3D)
-                             -- Actually, LineHandleAdornment draws a line in 3D space. To draw a 2D line we need a ScreenGui element (Frame/Line) or Drawing API.
-                             -- Since we want Compatibility, let's use a 3D line from Character to Target? Or simpler: Beam.
-                             -- Wait, LineHandleAdornment is easiest for 3D. let's just highlight the target for now with a beam to player? 
-                             -- No, user asked for lines. 
-                             -- Let's use Frame based 2D tracers.
-                             
-                             if not ScreenGui:FindFirstChild("T_"..char.Name) then
-                                 local l = Instance.new("Frame", ScreenGui); l.Name = "T_"..char.Name; l.BackgroundColor3 = rainbowColor; l.BorderSizePixel = 0; l.AnchorPoint = Vector2.new(0.5, 0.5)
-                             end
-                             local line = ScreenGui["T_"..char.Name]
-                             line.Visible = true
-                             if config.theme == "Rainbow" then line.BackgroundColor3 = rainbowColor else line.BackgroundColor3 = CurrentTheme.Accent end
-                             
-                             local origin = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y) -- Bottom Center
-                             local target = Vector2.new(screenPos.X, screenPos.Y)
-                             local dist = (target - origin).Magnitude
-                             line.Size = UDim2.new(0, dist, 0, 2)
-                             line.Position = UDim2.new(0, (origin.X + target.X) / 2, 0, (origin.Y + target.Y) / 2)
-                             line.Rotation = math.deg(math.atan2(target.Y - origin.Y, target.X - origin.X))
-                        else
-                             if ScreenGui:FindFirstChild("T_"..char.Name) then ScreenGui["T_"..char.Name].Visible = false end
-                        end
-                    else
-                         if ScreenGui:FindFirstChild("T_"..char.Name) then ScreenGui["T_"..char.Name].Visible = false end
-                    end
-                end
-            end
-        else
-            -- Cleanup Tracers
-            for _, c in pairs(ScreenGui:GetChildren()) do if c.Name:sub(1,2) == "T_" then c.Visible = false end end
-        end
-
-        -- ESP BOXES Logic
-        if config.boxEsp then
-            for _, char in pairs(targets) do
-                if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChildOfClass("Humanoid").Health > 0 then
-                    local hrp = char.HumanoidRootPart
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-                    if onScreen then
-                        if not ScreenGui:FindFirstChild("B_"..char.Name) then
-                            local b = Instance.new("Frame", ScreenGui); b.Name = "B_"..char.Name; b.BackgroundTransparency = 1; b.BorderSizePixel = 1; b.BorderColor3 = rainbowColor
-                        end
-                        local box = ScreenGui["B_"..char.Name]
-                        box.Visible = true; box.BorderColor3 = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
+                        local line = ScreenGui["T_"..char.Name]
+                        line.Visible = true; line.BackgroundColor3 = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
                         
-                        -- Simple Box Size Calc (Distance based)
-                        local dist = (Camera.CFrame.Position - hrp.Position).Magnitude
-                        local size = 2500 / dist
-                        box.Size = UDim2.new(0, size, 0, size * 1.5)
-                        box.Position = UDim2.new(0, screenPos.X - size/2, 0, screenPos.Y - size/1.5)
+                        local origin = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                        local target = Vector2.new(screenPos.X, screenPos.Y)
+                        local dist = (target - origin).Magnitude
+                        line.Size = UDim2.new(0, dist, 0, 1.5)
+                        line.Position = UDim2.new(0, (origin.X + target.X) / 2, 0, (origin.Y + target.Y)/2)
+                        line.Rotation = math.deg(math.atan2(target.Y - origin.Y, target.X - origin.X))
                     else
-                         if ScreenGui:FindFirstChild("B_"..char.Name) then ScreenGui["B_"..char.Name].Visible = false end
+                        if ScreenGui:FindFirstChild("T_"..char.Name) then ScreenGui["T_"..char.Name].Visible = false end
                     end
+                else
+                     if ScreenGui:FindFirstChild("T_"..char.Name) then ScreenGui["T_"..char.Name].Visible = false end
                 end
             end
         else
-             for _, c in pairs(ScreenGui:GetChildren()) do if c.Name:sub(1,2) == "B_" then c.Visible = false end end
-        end
-
-        if not espEnabled then return end
-        for _, char in pairs(targets) do
-            -- char is already the Character
-            if char and char:FindFirstChildOfClass("Humanoid") and char:FindFirstChildOfClass("Humanoid").Health > 0 then
-                local part = getBestPart(char)
-                if part then
-                    if not part:FindFirstChild("G_ESP") then
-                        local bb = Instance.new("BillboardGui", part); bb.Name = "G_ESP"; bb.Size = UDim2.new(0, 150, 0, 40); bb.AlwaysOnTop = true; bb.StudsOffset = Vector3.new(0, 3, 0)
-                        local t = Instance.new("TextLabel", bb); t.Size = UDim2.new(1, 0, 1, 0); t.BackgroundTransparency = 1; t.Font = Enum.Font.GothamBold; t.TextColor3 = rainbowColor; t.TextSize = 13
-                    end
-                    part.G_ESP.TextLabel.Text = char.Name .. " [" .. math.floor(char:FindFirstChildOfClass("Humanoid").Health) .. "]"
-                    if config.theme == "Rainbow" then part.G_ESP.TextLabel.TextColor3 = rainbowColor end
-                end
-            end
+            for _, v in pairs(ScreenGui:GetChildren()) do if v.Name:sub(1,2) == "T_" then v.Visible = false end end
         end
     end)
+    
+    -- PHYSICS LOOP
     
     -- PHYSICS LOOP (Speed, Jump, NoClip)
     Connect(RunService.Stepped, function()
@@ -610,15 +597,16 @@ local function LoadGalaxy()
     KeyList.Visible = config.keybindList
     AddToggle(TabSettings, "Show Keybind List", true, function(s) KeyList.Visible = s end)
     AddSlider(TabMisc, "Jump", 50, 300, 50, function(v) config.jumpPower = v end)
-    AddToggle(TabMisc, "Third Person (Free Look)", false, function(s) 
+    AddToggle(TabMisc, "Third Person", false, function(s) 
         config.thirdPerson = s 
         if s then
-            -- Enable Free Look
+            -- Native Roblox Third Person (Most reliable for shooting)
             LocalPlayer.CameraMode = Enum.CameraMode.Classic
             LocalPlayer.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Zoom
+            -- We don't force MouseBehavior here, let the game handle right-click to look, or ShiftLock.
+            -- To force "Free Look" without right click, we use LockCenter BUT allow input.
             UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
         else
-            -- Disable Free Look
             LocalPlayer.CameraMinZoomDistance = 0.5
             LocalPlayer.CameraMaxZoomDistance = 400
             UserInputService.MouseBehavior = Enum.MouseBehavior.Default
@@ -642,7 +630,6 @@ local function LoadGalaxy()
         if config.thirdPerson then
             LocalPlayer.CameraMaxZoomDistance = config.thirdPersonDist
             LocalPlayer.CameraMinZoomDistance = config.thirdPersonDist
-            UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter -- Force Lock
         end
     end)
 

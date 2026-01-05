@@ -431,19 +431,22 @@ local function LoadGalaxy()
         local btn = Instance.new("TextButton", f); btn.Size = UDim2.new(1,0,1,0); btn.BackgroundTransparency = 1; btn.Text = ""
         local dragging = false
         local function Update(input)
-            local p = math.clamp((Mouse.X - slideBar.AbsolutePosition.X) / slideBar.AbsoluteSize.X, 0, 1)
+            local p = math.clamp((input.Position.X - slideBar.AbsolutePosition.X) / slideBar.AbsoluteSize.X, 0, 1)
             local value = math.floor(min + ((max - min) * p))
             Tween(fill, {Size = UDim2.new(p, 0, 1, 0)})
             vLabel.Text = tostring(value)
             callback(value)
         end
         
-        slideBar.InputBegan:Connect(function(i) 
+        btn.InputBegan:Connect(function(i) 
             if i.UserInputType == Enum.UserInputType.MouseButton1 then 
                 dragging = true 
                 Update(i) 
             end 
         end)
+        
+        Connect(UserInputService.InputEnded, function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+        Connect(UserInputService.InputChanged, function(i) if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then Update(i) end end)
         
         Connect(UserInputService.InputEnded, function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
         Connect(UserInputService.InputChanged, function(i) if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then Update(i) end end)

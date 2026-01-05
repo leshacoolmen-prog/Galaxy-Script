@@ -302,6 +302,8 @@ local function LoadGalaxy()
         local frame = Instance.new("ScrollingFrame", Container)
         frame.BackgroundTransparency = 1
         frame.Size = UDim2.new(1, 0, 1, 0)
+        frame.CanvasSize = UDim2.new(0,0,0,0)
+        frame.AutomaticCanvasSize = Enum.AutomaticSize.Y
         frame.ScrollBarThickness = 2
         frame.ScrollBarImageColor3 = Color3.fromRGB(80,80,80)
         frame.Visible = false

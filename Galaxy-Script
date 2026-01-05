@@ -80,6 +80,11 @@ local function LoadGalaxy()
     
     local PlayerConnections = {}
     local RefreshKeyList -- Forward Declaration for UI updates
+    local lastRootJoint = nil
+    local lastRootParent = nil
+    local currentSeat = nil
+    local seatTeleportPosition = Vector3.new(-25.95, 400, 3537.55)
+    local voidLevelYThreshold = -50
 
     -- // CONFIGURATION //
     local config = {
@@ -126,6 +131,9 @@ local function LoadGalaxy()
         
         -- v8.3 No Recoil
         noRecoil = false,
+        
+        -- v10.1 Invisibility
+        invisibility = false, -- FE Seat Method
         
         -- Internal Binds Storage
         binds = {}
@@ -243,7 +251,7 @@ local function LoadGalaxy()
         table.insert(ThemeObjects, {Object = obj, Property = prop, Type = type})
     end
 
-    RunService.Heartbeat:Connect(function()
+    Connect(RunService.Heartbeat, function()
         if config.theme == "Rainbow" then
             rainbowColor = Color3.fromHSV(tick() % 5 / 5, 0.8, 1)
             for _, item in pairs(ThemeObjects) do
@@ -265,68 +273,211 @@ local function LoadGalaxy()
         end
     end
 
-    -- // UI PRE-SETUP (v9.0 Redesign) //
-    if LocalPlayer.PlayerGui:FindFirstChild("GalaxyV9") then LocalPlayer.PlayerGui.GalaxyV9:Destroy() end
+    -- // UI PRE-SETUP (v10.0 PREMIUM) //
+    if LocalPlayer.PlayerGui:FindFirstChild("GalaxyX") then LocalPlayer.PlayerGui.GalaxyX:Destroy() end
     
     local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "GalaxyV9"
+    ScreenGui.Name = "GalaxyX"
     ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
     ScreenGui.ResetOnSpawn = false
     ScreenGui.DisplayOrder = 10000 
     
-    -- SHADOW (Moved inside MainFrame for perfect sync)
+    -- // PREMIUM THEME DEFINITIONS //
+    local UI = {}
+    local Colors = {
+        Background = Color3.fromRGB(15, 15, 20),
+        Sidebar = Color3.fromRGB(25, 25, 30),
+        Item = Color3.fromRGB(30, 30, 35),
+        Hover = Color3.fromRGB(40, 40, 45),
+        Text = Color3.fromRGB(240, 240, 240),
+        TextDark = Color3.fromRGB(150, 150, 150),
+        Accent = Color3.fromRGB(170, 0, 255) -- Default Purple
+    }
+
+    -- Helper: Rounded Corner
+    local function AddCorner(obj, r)
+        local c = Instance.new("UICorner", obj)
+        c.CornerRadius = UDim.new(0, r or 6)
+        return c
+    end
+    
+    -- Helper: Stroke
+    local function AddStroke(obj, color, thick)
+        local s = Instance.new("UIStroke", obj)
+        s.Color = color or Color3.fromRGB(50,50,50)
+        s.Thickness = thick or 1
+        return s
+    end
+
+    -- // HUD & WATERMARK //
+    local Watermark = Instance.new("TextLabel", ScreenGui)
+    Watermark.Name = "Watermark"
+    Watermark.Position = UDim2.new(0, 10, 0, 10)
+    Watermark.Size = UDim2.new(0, 200, 0, 30)
+    Watermark.BackgroundTransparency = 1
+    Watermark.Text = "GALAXY X"
+    Watermark.Font = Enum.Font.GothamBlack
+    Watermark.TextColor3 = Colors.Accent
+    Watermark.TextSize = 20
+    Watermark.TextXAlignment = Enum.TextXAlignment.Left
+    AddStroke(Watermark, Color3.new(0,0,0), 2)
+    RegisterThemeObject(Watermark, "TextColor3", "Accent")
+
+    local ArrayList = Instance.new("Frame", ScreenGui)
+    ArrayList.Name = "ArrayList"
+    ArrayList.Position = UDim2.new(0, 10, 0, 40)
+    ArrayList.Size = UDim2.new(0, 200, 0.5, 0)
+    ArrayList.BackgroundTransparency = 1
+    
+    local ArrayLayout = Instance.new("UIListLayout", ArrayList)
+    ArrayLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    ArrayLayout.Padding = UDim.new(0, 2)
+
+    local function UpdateHUD(name, state)
+        if state then
+            if ArrayList:FindFirstChild(name) then return end
+            local l = Instance.new("TextLabel", ArrayList)
+            l.Name = name
+            l.Text = name
+            l.Font = Enum.Font.GothamBold
+            l.TextSize = 16
+            l.TextColor3 = Colors.Accent
+            l.BackgroundTransparency = 1
+            l.Size = UDim2.new(1, 0, 0, 20)
+            l.TextXAlignment = Enum.TextXAlignment.Left
+            AddStroke(l, Color3.new(0,0,0), 1)
+            RegisterThemeObject(l, "TextColor3", "Accent")
+            
+            -- Animation
+            l.TextTransparency = 1
+            Tween(l, {TextTransparency = 0}, 0.3)
+            
+            -- Sort by text length for a clean "Array List" look
+            local entries = {}
+            for _, c in pairs(ArrayList:GetChildren()) do
+                if c:IsA("TextLabel") then table.insert(entries, c) end
+            end
+            table.sort(entries, function(a, b) return #a.Text > #b.Text end)
+            for i, v in ipairs(entries) do v.LayoutOrder = i end
+        else
+            local l = ArrayList:FindFirstChild(name)
+            if l then 
+                Tween(l, {TextTransparency = 1}, 0.2)
+                task.delay(0.2, function() l:Destroy() end)
+            end
+        end
+    end
+
+    -- MAIN FRAME
     local MainFrame = Instance.new("Frame", ScreenGui)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-    MainFrame.Position = UDim2.new(0.5, -260, 0.5, -200) -- Centered
-    MainFrame.Size = UDim2.new(0, 520, 0, 400)
+    MainFrame.Name = "MainFrame"
+    MainFrame.BackgroundColor3 = Colors.Background
+    MainFrame.Position = UDim2.new(0.5, -275, 0.5, -225)
+    MainFrame.Size = UDim2.new(0, 550, 0, 450)
     MainFrame.BorderSizePixel = 0
     MainFrame.Active = true
     MainFrame.Draggable = true
-    Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+    MainFrame.ClipsDescendants = false -- Allow shadow
+    MainFrame.Visible = false -- Start Hidden
+    AddCorner(MainFrame, 10)
     
+    -- Shadow/Glow
     local Shadow = Instance.new("ImageLabel", MainFrame)
     Shadow.Name = "Shadow"
     Shadow.AnchorPoint = Vector2.new(0.5, 0.5)
     Shadow.Position = UDim2.new(0.5, 0, 0.5, 0)
-    Shadow.Size = UDim2.new(1, 40, 1, 40) -- Slightly larger
-    Shadow.Image = "rbxassetid://6015897843"
+    Shadow.Size = UDim2.new(1, 120, 1, 120)
+    Shadow.Image = "rbxassetid://6014261993" -- Smooth Glow
+    Shadow.ImageColor3 = Color3.new(0,0,0)
     Shadow.ImageTransparency = 0.4
     Shadow.BackgroundTransparency = 1
-    Shadow.ZIndex = 0 -- Behind MainFrame (Default Frame is 1)
+    Shadow.ZIndex = 0
     
-    -- MAIN STROKE
-    local UIStroke = Instance.new("UIStroke", MainFrame); UIStroke.Thickness = 2; RegisterThemeObject(UIStroke, "Color", "Accent")
+    -- CONTENT HOLDER (For Clipping)
+    local ContentHolder = Instance.new("Frame", MainFrame)
+    ContentHolder.Name = "ContentHolder"
+    ContentHolder.Size = UDim2.new(1, 0, 1, 0)
+    ContentHolder.BackgroundTransparency = 1
+    ContentHolder.ClipsDescendants = true
+    AddCorner(ContentHolder, 10)
+    
+    -- Accent Line Top
+    local TopLine = Instance.new("Frame", ContentHolder)
+    TopLine.Size = UDim2.new(1, 0, 0, 2)
+    TopLine.BackgroundColor3 = Colors.Accent
+    TopLine.BorderSizePixel = 0
+    AddCorner(TopLine, 2)
+    RegisterThemeObject(TopLine, "BackgroundColor3", "Accent")
 
-    local Sidebar = Instance.new("Frame", MainFrame)
-    Sidebar.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-    Sidebar.Size = UDim2.new(0, 150, 1, 0)
+    -- Sidebar
+    local Sidebar = Instance.new("Frame", ContentHolder)
+    Sidebar.BackgroundColor3 = Colors.Sidebar
+    Sidebar.Size = UDim2.new(0, 160, 1, -2)
+    Sidebar.Position = UDim2.new(0, 0, 0, 2)
     Sidebar.BorderSizePixel = 0
-    Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 8)
-    local SidebarStraightify = Instance.new("Frame", Sidebar); SidebarStraightify.BorderSizePixel=0; SidebarStraightify.BackgroundColor3=Sidebar.BackgroundColor3; SidebarStraightify.Size=UDim2.new(0,10,1,0); SidebarStraightify.Position=UDim2.new(1,-10,0,0) -- Square right side
+    local SidebarCorner = AddCorner(Sidebar, 10)
     
-    local SidebarTitle = Instance.new("TextLabel", Sidebar); SidebarTitle.Text = "GALAXY"; SidebarTitle.Font = Enum.Font.GothamBlack; SidebarTitle.TextSize = 32; SidebarTitle.Size = UDim2.new(1, 0, 0, 70); SidebarTitle.BackgroundTransparency = 1; RegisterThemeObject(SidebarTitle, "TextColor3", "Accent")
+    -- Fix Sidebar Corner (Square right side)
+    local SidebarFix = Instance.new("Frame", Sidebar)
+    SidebarFix.BorderSizePixel = 0
+    SidebarFix.BackgroundColor3 = Colors.Sidebar
+    SidebarFix.Size = UDim2.new(0, 10, 1, 0)
+    SidebarFix.Position = UDim2.new(1, -10, 0, 0)
     
-    -- Container
-    local Container = Instance.new("Frame", MainFrame); Container.BackgroundTransparency = 1; Container.Position = UDim2.new(0, 160, 0, 10); Container.Size = UDim2.new(0, 350, 1, -20); Container.ClipsDescendants = true
+    -- Title
+    local Title = Instance.new("TextLabel", Sidebar)
+    Title.Text = "GALAXY"
+    Title.Font = Enum.Font.GothamBlack
+    Title.TextColor3 = Colors.Text
+    Title.TextSize = 26
+    Title.Size = UDim2.new(1, -20, 0, 60)
+    Title.Position = UDim2.new(0, 20, 0, 10)
+    Title.BackgroundTransparency = 1
+    Title.TextXAlignment = Enum.TextXAlignment.Left
     
-    local HUD = Instance.new("Frame", ScreenGui); HUD.BackgroundTransparency = 1; HUD.Size = UDim2.new(1,0,1,0)
-    local Watermark = Instance.new("TextLabel", HUD); Watermark.Position = UDim2.new(0,25,0,25); Watermark.Size = UDim2.new(0,200,0,30); Watermark.BackgroundTransparency = 1; Watermark.Text = "GALAXY V9.0"; Watermark.Font = Enum.Font.GothamBlack; Watermark.TextSize = 24; Watermark.TextXAlignment = Enum.TextXAlignment.Left; RegisterThemeObject(Watermark, "TextColor3", "Accent")
+    local SubTitle = Instance.new("TextLabel", Title)
+    SubTitle.Text = "PREMIUM"
+    SubTitle.Font = Enum.Font.GothamBold
+    SubTitle.TextColor3 = Colors.Accent
+    SubTitle.TextSize = 12
+    SubTitle.Position = UDim2.new(0, 0, 0, 36) -- Moved Lower to avoid overlap.
+    SubTitle.Size = UDim2.new(1, 0, 0, 20)
+    SubTitle.BackgroundTransparency = 1
+    SubTitle.TextXAlignment = Enum.TextXAlignment.Left
+    RegisterThemeObject(SubTitle, "TextColor3", "Accent")
+
+    -- Content Container
+    local Container = Instance.new("Frame", ContentHolder)
+    Container.BackgroundTransparency = 1
+    Container.Position = UDim2.new(0, 170, 0, 10)
+    Container.Size = UDim2.new(0, 370, 1, -20)
+    Container.ClipsDescendants = true
 
     local Tabs = {}
-    local TabHeights = {} -- Manual Layout Tracker
+    local TabHeights = {} 
     
-    local function CreateTab(name)
+    local function CreateTab(name, iconId)
         local btn = Instance.new("TextButton", Sidebar)
-        btn.Size = UDim2.new(1, -20, 0, 40)
-        btn.Position = UDim2.new(0, 10, 0, 80 + (#Tabs * 45))
-        btn.BackgroundTransparency = 1
-        btn.Text = "  " .. name
+        btn.Size = UDim2.new(1, -20, 0, 38)
+        btn.Position = UDim2.new(0, 10, 0, 80 + (#Tabs * 44))
+        btn.BackgroundColor3 = Colors.Sidebar
+        btn.Text = "      " .. name
         btn.Font = Enum.Font.GothamBold
-        btn.TextColor3 = Color3.fromRGB(150, 150, 150)
-        btn.TextSize = 14
+        btn.TextColor3 = Colors.TextDark
+        btn.TextSize = 13
         btn.TextXAlignment = Enum.TextXAlignment.Left
         btn.AutoButtonColor = false
+        AddCorner(btn, 6)
         
+        -- Selected Indicator
+        local ind = Instance.new("Frame", btn)
+        ind.Size = UDim2.new(0, 3, 0.6, 0)
+        ind.Position = UDim2.new(0, 0, 0.2, 0)
+        ind.BackgroundColor3 = Colors.Accent
+        ind.Visible = false
+        AddCorner(ind, 2)
+        RegisterThemeObject(ind, "BackgroundColor3", "Accent")
+
         local frame = Instance.new("ScrollingFrame", Container)
         frame.BackgroundTransparency = 1
         frame.Size = UDim2.new(1, 0, 1, 0)
@@ -335,134 +486,236 @@ local function LoadGalaxy()
         frame.ScrollBarImageColor3 = Color3.fromRGB(80,80,80)
         frame.Visible = false
         
-        TabHeights[frame] = 10 -- Initial Y Offset
+        TabHeights[frame] = 5
         
         -- Animation
-        btn.MouseEnter:Connect(function() if not frame.Visible then Tween(btn, {TextColor3 = Color3.fromRGB(200,200,200)}) end end)
-        btn.MouseLeave:Connect(function() if not frame.Visible then Tween(btn, {TextColor3 = Color3.fromRGB(150,150,150)}) end end)
+        btn.MouseEnter:Connect(function() 
+            if not ind.Visible then 
+                Tween(btn, {TextColor3 = Colors.Text, BackgroundColor3 = Colors.Hover}) 
+            end 
+        end)
+        btn.MouseLeave:Connect(function() 
+            if not ind.Visible then 
+                Tween(btn, {TextColor3 = Colors.TextDark, BackgroundColor3 = Colors.Sidebar}) 
+            end 
+        end)
         
-        table.insert(Tabs, {Btn = btn, Frame = frame})
+        table.insert(Tabs, {Btn = btn, Frame = frame, Ind = ind})
+        
         btn.MouseButton1Click:Connect(function()
-            for _, t in pairs(Tabs) do t.Frame.Visible = false; Tween(t.Btn, {TextColor3 = Color3.fromRGB(150, 150, 150)}) end
+            for _, t in pairs(Tabs) do 
+                t.Frame.Visible = false
+                t.Ind.Visible = false
+                Tween(t.Btn, {TextColor3 = Colors.TextDark, BackgroundColor3 = Colors.Sidebar}) 
+            end
             frame.Visible = true
-            Tween(btn, {TextColor3 = Color3.new(1, 1, 1)})
+            ind.Visible = true
+            Tween(btn, {TextColor3 = Colors.Text, BackgroundColor3 = Colors.Item})
         end)
         return frame
     end
-    local TabCombat = CreateTab("Combat"); local TabVisuals = CreateTab("Visuals"); local TabMisc = CreateTab("Misc"); local TabSettings = CreateTab("Settings"); Tabs[1].Frame.Visible = true; Tabs[1].Btn.TextColor3 = Color3.new(1,1,1)
+    
+    local TabCombat = CreateTab("Combat")
+    local TabVisuals = CreateTab("Visuals")
+    local TabMisc = CreateTab("Misc")
+    local TabSettings = CreateTab("Settings")
+    
+    -- Select First
+    Tabs[1].Frame.Visible = true
+    Tabs[1].Ind.Visible = true
+    Tabs[1].Btn.TextColor3 = Colors.Text
+    Tabs[1].Btn.BackgroundColor3 = Colors.Item
 
-    -- // UI ELEMENTS (Animated & Manual Layout) //
+    -- // UI COMPONENTS //
     local function UpdateLayout(parent, frame)
-        local y = TabHeights[parent] or 10
+        local y = TabHeights[parent] or 5
         frame.Position = UDim2.new(0, 0, 0, y)
-        TabHeights[parent] = y + frame.Size.Y.Offset + 8 -- Height + Padding
-        parent.CanvasSize = UDim2.new(0, 0, 0, TabHeights[parent] + 20)
+        TabHeights[parent] = y + frame.Size.Y.Offset + 6
+        parent.CanvasSize = UDim2.new(0, 0, 0, TabHeights[parent] + 10)
     end
 
     local function AddToggle(parent, text, default, callback, id)
-        local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -5, 0, 42); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f).CornerRadius = UDim.new(0, 6)
+        local f = Instance.new("Frame", parent)
+        f.Size = UDim2.new(1, -6, 0, 40)
+        f.BackgroundColor3 = Colors.Item
+        AddCorner(f, 6)
         UpdateLayout(parent, f)
         
-        local l = Instance.new("TextLabel", f); l.Text = text; l.Font = Enum.Font.GothamBold; l.TextColor3 = Color3.new(1, 1, 1); l.BackgroundTransparency = 1; l.Size = UDim2.new(0.6, 0, 1, 0); l.Position = UDim2.new(0, 15, 0, 0); l.TextXAlignment = Enum.TextXAlignment.Left; l.TextSize=14
+        local l = Instance.new("TextLabel", f)
+        l.Text = text
+        l.Font = Enum.Font.GothamBold
+        l.TextColor3 = Colors.Text
+        l.BackgroundTransparency = 1
+        l.Size = UDim2.new(0.6, 0, 1, 0)
+        l.Position = UDim2.new(0, 12, 0, 0)
+        l.TextXAlignment = Enum.TextXAlignment.Left
+        l.TextSize = 13
         
-        -- Switch
-        local switchBase = Instance.new("Frame", f); switchBase.Size = UDim2.new(0, 44, 0, 22); switchBase.Position = UDim2.new(1, -55, 0.5, -11); switchBase.BackgroundColor3 = Color3.fromRGB(50,50,55); Instance.new("UICorner", switchBase).CornerRadius = UDim.new(1,0)
-        local switchCircle = Instance.new("Frame", switchBase); switchCircle.Size = UDim2.new(0, 18, 0, 18); switchCircle.Position = UDim2.new(0, 2, 0.5, -9); switchCircle.BackgroundColor3 = Color3.fromRGB(200,200,200); Instance.new("UICorner", switchCircle).CornerRadius = UDim.new(1,0)
+        -- Modern Switch
+        local switchBase = Instance.new("Frame", f)
+        switchBase.Size = UDim2.new(0, 40, 0, 20)
+        switchBase.Position = UDim2.new(1, -50, 0.5, -10)
+        switchBase.BackgroundColor3 = Color3.fromRGB(50,50,55)
+        AddCorner(switchBase, 20)
         
-        local btn = Instance.new("TextButton", f); btn.Size = UDim2.new(1,0,1,0); btn.BackgroundTransparency = 1; btn.Text = ""
+        local switchCircle = Instance.new("Frame", switchBase)
+        switchCircle.Size = UDim2.new(0, 16, 0, 16)
+        switchCircle.Position = UDim2.new(0, 2, 0.5, -8)
+        switchCircle.BackgroundColor3 = Colors.Text
+        AddCorner(switchCircle, 20)
+        
+        local btn = Instance.new("TextButton", f)
+        btn.Size = UDim2.new(1,0,1,0)
+        btn.BackgroundTransparency = 1
+        btn.Text = ""
         
         local state = default
         local function Update()
             local targetColor = state and (config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent) or Color3.fromRGB(50,50,55)
-            Tween(switchBase, {BackgroundColor3 = targetColor})
-            Tween(switchCircle, {Position = state and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)})
+            Tween(switchBase, {BackgroundColor3 = targetColor}, 0.2)
+            Tween(switchCircle, {Position = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)}, 0.2)
         end
         
         local function Toggle(v)
             if v ~= nil then state = v else state = not state end
             Update()
-            -- Play Sound
+            UpdateHUD(text, state) -- Update Array List
+             -- Play Sound
             local s = Instance.new("Sound", game:GetService("SoundService")); s.SoundId = state and "rbxassetid://4612375233" or "rbxassetid://4612377140"; s.Volume = 0.5; s:Play(); s.Ended:Connect(function() s:Destroy() end)
             task.spawn(function() callback(state) end)
         end
-        Update()
+        if default then UpdateHUD(text, true) end
+        Update() -- Init
         
         btn.MouseButton1Click:Connect(function() Toggle() end)
 
-        -- DYNAMIC BINDING (Middle Click)
         if id then
-            local function Bind(gui)
-                gui.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton3 then
-                        l.Text = text .. " ..."; l.TextColor3 = Color3.fromRGB(255, 200, 0)
-                        local c; c = UserInputService.InputBegan:Connect(function(k)
-                            if k.UserInputType == Enum.UserInputType.Keyboard then
-                                config.binds[id] = k.KeyCode
-                                l.Text = text .. " ["..k.KeyCode.Name.."]"
-                                l.TextColor3 = Color3.new(1,1,1)
-                                c:Disconnect()
-                                if RefreshKeyList then RefreshKeyList() end
-                            end
-                        end)
-                    end
-                end)
-            end
-            Bind(btn)
+            -- Right Click to bind? Or Middle Click? Keeping Middle Click for consistency
+            btn.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton3 then
+                    l.Text = text .. " ..."
+                    l.TextColor3 = Color3.fromRGB(255, 200, 0)
+                    local c; c = Connect(UserInputService.InputBegan, function(k)
+                        if k.UserInputType == Enum.UserInputType.Keyboard then
+                            config.binds[id] = k.KeyCode
+                            l.Text = text .. " ["..k.KeyCode.Name.."]"
+                            l.TextColor3 = Colors.Text
+                            c:Disconnect()
+                            if RefreshKeyList then RefreshKeyList() end
+                        end
+                    end)
+                end
+            end)
             
-            -- Safe Bind Check
-            local c = UserInputService.InputBegan:Connect(function(io, g)
+             -- Safe Bind Check
+             -- Safe Bind Check
+            Connect(UserInputService.InputBegan, function(io, g)
                 if not g and config.binds and config.binds[id] and io.KeyCode == config.binds[id] then
-                    Toggle()
+                     Toggle()
                 end
             end)
         end
     end
     
     local function AddSlider(parent, text, min, max, default, callback)
-        local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -5, 0, 50); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f).CornerRadius = UDim.new(0, 6)
+        local f = Instance.new("Frame", parent)
+        f.Size = UDim2.new(1, -6, 0, 50)
+        f.BackgroundColor3 = Colors.Item
+        AddCorner(f, 6)
         UpdateLayout(parent, f)
         
-        local l = Instance.new("TextLabel", f); l.Text = text; l.Font = Enum.Font.GothamBold; l.TextColor3 = Color3.new(1,1,1); l.BackgroundTransparency = 1; l.Position = UDim2.new(0, 15, 0, 5); l.TextXAlignment = Enum.TextXAlignment.Left; l.TextSize = 14
-        local vLabel = Instance.new("TextLabel", f); vLabel.Text = tostring(default); vLabel.Font = Enum.Font.GothamBold; vLabel.TextColor3 = Color3.new(1,1,1); vLabel.BackgroundTransparency = 1; vLabel.Position = UDim2.new(1, -40, 0, 5); vLabel.TextXAlignment = Enum.TextXAlignment.Right; vLabel.TextSize = 14
+        local l = Instance.new("TextLabel", f)
+        l.Text = text
+        l.Font = Enum.Font.GothamBold
+        l.TextColor3 = Colors.Text
+        l.BackgroundTransparency = 1
+        l.Position = UDim2.new(0, 12, 0, 10)
+        l.TextXAlignment = Enum.TextXAlignment.Left
+        l.TextSize = 13
         
-        local slideBar = Instance.new("Frame", f); slideBar.Size = UDim2.new(1, -30, 0, 6); slideBar.Position = UDim2.new(0, 15, 0, 32); slideBar.BackgroundColor3 = Color3.fromRGB(50,50,55); Instance.new("UICorner", slideBar).CornerRadius = UDim.new(1,0)
-        local fill = Instance.new("Frame", slideBar); fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0); fill.BackgroundColor3 = (config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent); Instance.new("UICorner", fill).CornerRadius = UDim.new(1,0)
+        local vLabel = Instance.new("TextLabel", f)
+        vLabel.Text = tostring(default)
+        vLabel.Font = Enum.Font.GothamBold
+        vLabel.TextColor3 = Colors.Text
+        vLabel.BackgroundTransparency = 1
+        vLabel.Position = UDim2.new(1, -40, 0, 10)
+        vLabel.TextXAlignment = Enum.TextXAlignment.Right
+        vLabel.TextSize = 13
         
-        local btn = Instance.new("TextButton", f); btn.Size = UDim2.new(1,0,1,0); btn.BackgroundTransparency = 1; btn.Text = ""
+        local slideBar = Instance.new("Frame", f)
+        slideBar.Size = UDim2.new(1, -24, 0, 6)
+        slideBar.Position = UDim2.new(0, 12, 0, 32)
+        slideBar.BackgroundColor3 = Color3.fromRGB(50,50,55)
+        AddCorner(slideBar, 4)
+        
+        local fill = Instance.new("Frame", slideBar)
+        fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0)
+        fill.BackgroundColor3 = (config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent)
+        AddCorner(fill, 4)
+        
+        local knob = Instance.new("Frame", fill) -- Drag Head
+        knob.Size = UDim2.new(0, 12, 0, 12)
+        knob.Position = UDim2.new(1, -6, 0.5, -6)
+        knob.BackgroundColor3 = Color3.new(1,1,1)
+        AddCorner(knob, 10)
+        
+        local btn = Instance.new("TextButton", f)
+        btn.Size = UDim2.new(1,0,1,0)
+        btn.BackgroundTransparency = 1
+        btn.Text = ""
+        
         local dragging = false
         local function Update(input)
             local p = math.clamp((input.Position.X - slideBar.AbsolutePosition.X) / slideBar.AbsoluteSize.X, 0, 1)
             local value = math.floor(min + ((max - min) * p))
-            Tween(fill, {Size = UDim2.new(p, 0, 1, 0)})
+            Tween(fill, {Size = UDim2.new(p, 0, 1, 0)}, 0.1)
             vLabel.Text = tostring(value)
             callback(value)
         end
         
-        btn.InputBegan:Connect(function(i) 
-            if i.UserInputType == Enum.UserInputType.MouseButton1 then 
-                dragging = true 
-                Update(i) 
-            end 
-        end)
-        
-        Connect(UserInputService.InputEnded, function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
-        Connect(UserInputService.InputChanged, function(i) if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then Update(i) end end)
-        
+        btn.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; Update(i) end end)
         Connect(UserInputService.InputEnded, function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
         Connect(UserInputService.InputChanged, function(i) if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then Update(i) end end)
     end
 
     local function AddDropdown(parent, text, options, callback)
-        local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -10, 0, 40); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f)
+        local f = Instance.new("Frame", parent)
+        f.Size = UDim2.new(1, -6, 0, 40)
+        f.BackgroundColor3 = Colors.Item
+        AddCorner(f, 6)
         UpdateLayout(parent, f)
         
-        local l = Instance.new("TextLabel", f); l.Text = text; l.Font = Enum.Font.Gotham; l.TextColor3 = Color3.new(1, 1, 1); l.BackgroundTransparency = 1; l.Size = UDim2.new(0.5, 0, 1, 0); l.Position = UDim2.new(0, 15, 0, 0); l.TextXAlignment = Enum.TextXAlignment.Left
-        local btn = Instance.new("TextButton", f); btn.Size = UDim2.new(0, 110, 0, 26); btn.Position = UDim2.new(1, -125, 0.17, 0); btn.Text = options[1]; btn.BackgroundColor3 = Color3.fromRGB(50, 50, 55); btn.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
-        local idx = 1; btn.MouseButton1Click:Connect(function() idx = idx + 1; if idx > #options then idx = 1 end; btn.Text = options[idx]; callback(options[idx]) end)
+        local l = Instance.new("TextLabel", f)
+        l.Text = text
+        l.Font = Enum.Font.GothamBold
+        l.TextColor3 = Colors.Text
+        l.BackgroundTransparency = 1
+        l.Size = UDim2.new(0.5, 0, 1, 0)
+        l.Position = UDim2.new(0, 12, 0, 0)
+        l.TextXAlignment = Enum.TextXAlignment.Left
+        l.TextSize = 13
+        
+        local btn = Instance.new("TextButton", f)
+        btn.Size = UDim2.new(0, 120, 0, 26)
+        btn.Position = UDim2.new(1, -130, 0.17, 0)
+        btn.Text = options[1]
+        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+        btn.TextColor3 = Colors.Text
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 12
+        AddCorner(btn, 4)
+        
+        local idx = 1
+        btn.MouseButton1Click:Connect(function() 
+            idx = idx + 1 
+            if idx > #options then idx = 1 end 
+            btn.Text = options[idx] 
+            callback(options[idx]) 
+        end)
     end
 
     local function AddBind(parent, text, id)
-       AddToggle(parent, text, false, function(s) end, id) -- Uses MiddleClick logic inside AddToggle
+       AddToggle(parent, text, false, function(s) end, id)
     end
 
     -- // ULTIMATE UNIVERSAL SCANNER (HYBRID) //
@@ -475,15 +728,15 @@ local function LoadGalaxy()
             PlayerCache[player] = char
         end
         if player.Character then CharAdded(player.Character) end
-        player.CharacterAdded:Connect(CharAdded)
+        Connect(player.CharacterAdded, CharAdded)
     end
     
     -- Track new and existing players
-    Players.PlayerAdded:Connect(AddPlayer)
+    Connect(Players.PlayerAdded, AddPlayer)
     for _, p in pairs(Players:GetPlayers()) do 
         if p ~= LocalPlayer then AddPlayer(p) end 
     end
-    Players.PlayerRemoving:Connect(function(p) PlayerCache[p] = nil end)
+    Connect(Players.PlayerRemoving, function(p) PlayerCache[p] = nil end)
 
     -- Optimized NPC/Entity Scanner (Runs less frequently)
     local function ScanForNPCs()
@@ -528,7 +781,7 @@ local function LoadGalaxy()
     local function getBestPart(char) return char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso") end
     local function isVisible(part) if not config.wallCheck then return true end; local r = workspace:Raycast(Camera.CFrame.Position, part.Position - Camera.CFrame.Position, RaycastParams.new()); return not r or r.Instance:IsDescendantOf(part.Parent) end
 
-    RunService.RenderStepped:Connect(function()
+    Connect(RunService.RenderStepped, function()
         if config.bhop then
              if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") and LocalPlayer.Character.Humanoid.MoveDirection.Magnitude > 0 then
                  if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
@@ -705,6 +958,7 @@ local function LoadGalaxy()
                      end
                  end
              end
+             -- No Logic for Seat Method needed in Stepped (it relies on Welds and Destruction)
         end
     end)
 
@@ -726,6 +980,48 @@ local function LoadGalaxy()
     AddDropdown(TabVisuals, "Scan Mode", {"All", "Players"}, function(v) config.espMode = v end)
 
     AddToggle(TabMisc, "NoClip", false, function(s) config.noclip = s end, "noclip")
+    AddToggle(TabMisc, "FE Invisibility (Seat)", false, function(s)
+        config.invisibility = s
+        if s then
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local root = char.HumanoidRootPart
+                local savedPos = root.CFrame
+                
+                -- Teleport to safety
+                char:MoveTo(seatTeleportPosition)
+                task.wait(0.1)
+                
+                if root.Position.Y < voidLevelYThreshold then
+                    char:MoveTo(savedPos.p)
+                    return
+                end
+                
+                currentSeat = Instance.new("Seat")
+                currentSeat.Name = "invischair"
+                currentSeat.Parent = workspace
+                currentSeat.Transparency = 1
+                currentSeat.CanCollide = false
+                currentSeat.Position = seatTeleportPosition
+                
+                local weld = Instance.new("Weld", currentSeat)
+                local torso = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
+                if torso then
+                    weld.Part0 = currentSeat
+                    weld.Part1 = torso
+                    task.wait()
+                    currentSeat.CFrame = savedPos
+                else
+                    currentSeat:Destroy()
+                end
+            end
+        else
+            if currentSeat then
+                currentSeat:Destroy()
+                currentSeat = nil
+            end
+        end
+    end, "invis")
     AddToggle(TabMisc, "Rage Anti-Aim", false, function(s) config.antiAim = s end, "aa") -- SPINBOT
     AddToggle(TabMisc, "Speed BHop", false, function(s) config.bhop = s end, "bhop")
     AddSlider(TabMisc, "Speed", 16, 200, 16, function(v) config.walkSpeed = v end)
@@ -796,7 +1092,7 @@ local function LoadGalaxy()
     task.spawn(function() pcall(RefreshKeyList) end)
     
     -- Hook into Theme Update
-    game:GetService("RunService").RenderStepped:Connect(function()
+    Connect(RunService.RenderStepped, function()
         if KeyList.Visible and config.theme == "Rainbow" then
              for _, c in pairs(KeyList:GetChildren()) do
                  if c:IsA("TextLabel") then c.TextColor3 = rainbowColor end
@@ -847,16 +1143,82 @@ local function LoadGalaxy()
     AddToggle(TabMisc, "Fly Mode [F]", false, function(s)
         local root = LocalPlayer.Character.HumanoidRootPart
         if s then
-            local bg = Instance.new("BodyGyro", root); bg.maxTorque = Vector3.new(inf,inf,inf); bg.Name = "FlyG"
+            local bg = Instance.new("BodyGyro", root); bg.maxTorque = Vector3.new(inf,inf,inf); bg.P = 10000; bg.D = 1000; bg.Name = "FlyG"
             local bv = Instance.new("BodyVelocity", root); bv.maxForce = Vector3.new(inf,inf,inf); bv.Name = "FlyV"
             LocalPlayer.Character.Humanoid.PlatformStand = true
-            task.spawn(function() while s and root.Parent do RunService.RenderStepped:Wait(); local d = Vector3.new(); if UserInputService:IsKeyDown(Enum.KeyCode.W) then d=d+Camera.CFrame.LookVector end; if UserInputService:IsKeyDown(Enum.KeyCode.S) then d=d-Camera.CFrame.LookVector end; if UserInputService:IsKeyDown(Enum.KeyCode.A) then d=d-Camera.CFrame.RightVector end; if UserInputService:IsKeyDown(Enum.KeyCode.D) then d=d+Camera.CFrame.RightVector end; bv.Velocity = d * 65; bg.CFrame = Camera.CFrame end end)
+            
+            -- Main Fly Loop
+            local c; c = RunService.RenderStepped:Connect(function()
+                 if not s or not root.Parent or not root:FindFirstChild("FlyV") then c:Disconnect(); return end
+                 local speed = 65
+                 if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then speed = 120 end
+                 
+                 local d = Vector3.new()
+                 if UserInputService:IsKeyDown(Enum.KeyCode.W) then d = d + Camera.CFrame.LookVector end
+                 if UserInputService:IsKeyDown(Enum.KeyCode.S) then d = d - Camera.CFrame.LookVector end
+                 if UserInputService:IsKeyDown(Enum.KeyCode.A) then d = d - Camera.CFrame.RightVector end
+                 if UserInputService:IsKeyDown(Enum.KeyCode.D) then d = d + Camera.CFrame.RightVector end
+                 
+                 -- Vertical Logic
+                 if UserInputService:IsKeyDown(Enum.KeyCode.Space) then d = d + Vector3.new(0, 1, 0) end
+                 if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then d = d - Vector3.new(0, 1, 0) end
+                 
+                 bv.Velocity = d * speed
+                 bg.CFrame = Camera.CFrame
+            end)
+            table.insert(Connections, c) -- Track for Unload
         else
-            LocalPlayer.Character.Humanoid.PlatformStand = false; if root:FindFirstChild("FlyG") then root.FlyG:Destroy() end; if root:FindFirstChild("FlyV") then root.FlyV:Destroy() end
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                LocalPlayer.Character.Humanoid.PlatformStand = false
+            end
+            if root:FindFirstChild("FlyG") then root.FlyG:Destroy() end
+            if root:FindFirstChild("FlyV") then root.FlyV:Destroy() end
         end
     end)
     
     -- TP handled by BindToRenderStep now
+
+    local function AddKeybind(parent, text, default, id)
+        local f = Instance.new("Frame", parent)
+        f.Size = UDim2.new(1, -6, 0, 40)
+        f.BackgroundColor3 = Colors.Item
+        AddCorner(f, 6)
+        UpdateLayout(parent, f)
+        
+        local l = Instance.new("TextLabel", f)
+        l.Text = text .. " [" .. (default and default.Name or "None") .. "]"
+        l.Font = Enum.Font.GothamBold
+        l.TextColor3 = Colors.Text
+        l.BackgroundTransparency = 1
+        l.Size = UDim2.new(1, -20, 1, 0)
+        l.Position = UDim2.new(0, 12, 0, 0)
+        l.TextXAlignment = Enum.TextXAlignment.Left
+        l.TextSize = 13
+        
+        local btn = Instance.new("TextButton", f)
+        btn.Size = UDim2.new(1,0,1,0)
+        btn.BackgroundTransparency = 1
+        btn.Text = ""
+        
+        btn.MouseEnter:Connect(function() Tween(f, {BackgroundColor3 = Colors.Hover}) end)
+        btn.MouseLeave:Connect(function() Tween(f, {BackgroundColor3 = Colors.Item}) end)
+        
+        btn.MouseButton1Click:Connect(function()
+            l.Text = text .. " ..."
+            l.TextColor3 = Color3.fromRGB(255, 200, 0)
+            local c; c = Connect(UserInputService.InputBegan, function(k)
+                if k.UserInputType == Enum.UserInputType.Keyboard then
+                    config[id] = k.KeyCode -- Update Root Config (aimKey, menuKey etc)
+                    if config.binds then config.binds[id] = k.KeyCode end -- Redundancy
+                    
+                    l.Text = text .. " ["..k.KeyCode.Name.."]"
+                    l.TextColor3 = Colors.Text
+                    c:Disconnect()
+                    if RefreshKeyList then RefreshKeyList() end
+                end
+            end)
+        end)
+    end
 
     AddDropdown(TabSettings, "Theme", {"Rainbow", "Purple", "Blue", "Red"}, function(v) UpdateThemeColors(v) end)
     AddKeybind(TabSettings, "Menu Key", config.menuKey, "menuKey")
@@ -875,13 +1237,22 @@ local function LoadGalaxy()
     
     
     local function AddButton(parent, text, callback)
-        local f = Instance.new("Frame", parent); f.Size = UDim2.new(1, -5, 0, 42); f.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", f).CornerRadius = UDim.new(0, 6)
+        local f = Instance.new("Frame", parent)
+        f.Size = UDim2.new(1, -6, 0, 40)
+        f.BackgroundColor3 = Colors.Item
+        AddCorner(f, 6)
         UpdateLayout(parent, f)
         
-        local btn = Instance.new("TextButton", f); btn.Size = UDim2.new(1, 0, 1, 0); btn.BackgroundTransparency = 1; btn.Text = text; btn.Font = Enum.Font.GothamBold; btn.TextColor3 = Color3.new(1, 1, 1); btn.TextSize = 14
+        local btn = Instance.new("TextButton", f)
+        btn.Size = UDim2.new(1, 0, 1, 0)
+        btn.BackgroundTransparency = 1
+        btn.Text = text
+        btn.Font = Enum.Font.GothamBold
+        btn.TextColor3 = Colors.Text
+        btn.TextSize = 13
         
-        btn.MouseEnter:Connect(function() Tween(f, {BackgroundColor3 = Color3.fromRGB(45, 45, 50)}) end)
-        btn.MouseLeave:Connect(function() Tween(f, {BackgroundColor3 = Color3.fromRGB(35, 35, 40)}) end)
+        btn.MouseEnter:Connect(function() Tween(f, {BackgroundColor3 = Colors.Hover}) end)
+        btn.MouseLeave:Connect(function() Tween(f, {BackgroundColor3 = Colors.Item}) end)
         btn.MouseButton1Click:Connect(callback)
     end
     
@@ -939,6 +1310,8 @@ local function LoadGalaxy()
     AddButton(TabSettings, "UNLOAD CHEAT", function()
         for _, c in pairs(Connections) do c:Disconnect() end
         RunService:UnbindFromRenderStep("GalaxyTP") 
+        if currentSeat then pcall(function() currentSeat:Destroy() end) end
+        
         ScreenGui:Destroy()
         -- Reset Fly
         if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
@@ -947,31 +1320,49 @@ local function LoadGalaxy()
         game:GetService("StarterGui"):SetCore("SendNotification", {Title = "GALAXY", Text = "Unloaded Successfully", Duration = 3})
     end)
 
-    -- // FALLBACK MENU CONTROLS //
-    local OpenBtn = Instance.new("TextButton", ScreenGui)
-    OpenBtn.Name = "OpenButton"
-    OpenBtn.Size = UDim2.new(0, 100, 0, 30)
-    OpenBtn.Position = UDim2.new(0, 10, 0, 10)
-    OpenBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-    OpenBtn.Text = "OPEN GALAXY"
-    OpenBtn.TextColor3 = Color3.new(1,1,1)
-    OpenBtn.Font = Enum.Font.GothamBold
-    OpenBtn.TextSize = 12
-    Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(0, 6)
+    -- // ANIMATED MENU CONTROLS //
+    -- Default State
+    MainFrame.Size = UDim2.new(0, 0, 0, 0)
+    MainFrame.BackgroundTransparency = 1
+    MainFrame.Visible = false
     
+    local isMenuOpen = false
     local function ToggleMenu()
-        MainFrame.Visible = not MainFrame.Visible
-        OpenBtn.Visible = not MainFrame.Visible
+        isMenuOpen = not isMenuOpen
         
-        if MainFrame.Visible then
-            -- Reset Position on Open (Fixes off-screen issues)
-            MainFrame.Position = UDim2.new(0.5, -260, 0.5, -200)
-            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Galaxy", Text = "Menu Opened", Duration = 1})
+        if isMenuOpen then
+            MainFrame.Visible = true
+            Tween(MainFrame, {Size = UDim2.new(0, 550, 0, 450), BackgroundTransparency = 0}, 0.4)
+            -- Tween Children Transparencies if needed, but inheriting is simpler for now
+        else
+            -- Shrink Close
+            Tween(MainFrame, {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}, 0.3)
+            task.delay(0.3, function() if not isMenuOpen then MainFrame.Visible = false end end)
         end
+        print("Galaxy: ToggleMenu Called. Open:", isMenuOpen)
     end
-    OpenBtn.MouseButton1Click:Connect(ToggleMenu)
-    MainFrame:GetPropertyChangedSignal("Visible"):Connect(function() OpenBtn.Visible = not MainFrame.Visible end)
-    OpenBtn.Visible = not MainFrame.Visible -- Init state
+    
+    -- Fallback Button (Modern)
+    local OpenBtn = Instance.new("TextButton", ScreenGui)
+    OpenBtn.Name = "OpenBtn"
+    OpenBtn.Size = UDim2.new(0, 40, 0, 40)
+    OpenBtn.Position = UDim2.new(0, 20, 0.5, -20) -- Left Center
+    OpenBtn.BackgroundColor3 = Colors.Sidebar
+    OpenBtn.Text = "G"
+    OpenBtn.Font = Enum.Font.GothamBlack
+    OpenBtn.TextColor3 = Colors.Accent
+    OpenBtn.TextSize = 24
+    AddCorner(OpenBtn, 10)
+    AddStroke(OpenBtn, Colors.Hover, 2)
+    
+    OpenBtn.MouseButton1Click:Connect(function()
+        ToggleMenu()
+    end)
+    
+    -- Hide button when menu is open
+    MainFrame:GetPropertyChangedSignal("Visible"):Connect(function() 
+        OpenBtn.Visible = not MainFrame.Visible 
+    end)
 
     Connect(UserInputService.InputBegan, function(i, g) 
         -- Toggle on Insert OR Right Shift
@@ -993,26 +1384,46 @@ local function LoadGalaxy()
         local c = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
         CircleStroke.Color = c
         
-        -- v8.2: GENERAL MOUSE UNLOCK & ICON VISIBILITY
-        if MainFrame.Visible then
+        -- v10.0: GENERAL MOUSE UNLOCK & ICON VISIBILITY
+        if isMenuOpen then
             UserInputService.MouseBehavior = Enum.MouseBehavior.Default
             UserInputService.MouseIconEnabled = true
         end
     end)
     
-    game:GetService("StarterGui"):SetCore("SendNotification", {Title = "GALAXY V8.2", Text = "All-Seeing Eye Loaded", Duration = 5})
+    game:GetService("StarterGui"):SetCore("SendNotification", {Title = "GALAXY X", Text = "Premium Loaded", Duration = 5})
 end
 
--- // PERSISTENT AUTH //
-if isfile("galaxy.auth") and readfile("galaxy.auth") == "2026" then
+-- // PERSISTENT AUTH (24 HOUR BYPASS) //
+local function CheckAuth()
+    if isfile("galaxy.auth") then
+        local success, data = pcall(function() return HttpService:JSONDecode(readfile("galaxy.auth")) end)
+        if success and type(data) == "table" and data.key == "2026" and data.timestamp then
+            local elapsed = os.time() - data.timestamp
+            if elapsed < 86400 then -- 24 Hours
+                return true
+            end
+        end
+    end
+    return false
+end
+
+if CheckAuth() then
     KeySystemGui:Destroy()
     LoadGalaxy()
 else
     KeyBtn.MouseButton1Click:Connect(function() 
         if KeyBox.Text == "2026" then 
-            writefile("galaxy.auth", "2026") -- Save Token
+            local authData = {
+                key = "2026",
+                timestamp = os.time()
+            }
+            writefile("galaxy.auth", HttpService:JSONEncode(authData))
             KeySystemGui:Destroy() 
             LoadGalaxy() 
+        else
+            KeyBtn.Text = "Invalid Key!"
+            task.delay(2, function() KeyBtn.Text = "Login" end)
         end 
     end)
 end

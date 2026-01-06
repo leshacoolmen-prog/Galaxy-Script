@@ -97,6 +97,7 @@ LoadGalaxy = function()
     local currentSeat = nil
     local seatTeleportPosition = Vector3.new(-25.95, 400, 3537.55)
     local voidLevelYThreshold = -50
+    local TP1, TP2 = nil, nil
 
     local defCfg = {
         menuKey=Enum.KeyCode.Insert, aimKey=nil, triggerKey=nil, espKey=nil, flyKey=nil, zoomKey=nil,
@@ -262,7 +263,7 @@ LoadGalaxy = function()
         return sc
     end
 
-    local TabCombat, TabVisuals, TabMisc, TabSettings = CreateTab("Combat"), CreateTab("Visuals"), CreateTab("Misc"), CreateTab("Settings")
+    local TabCombat, TabVisuals, TabMovement, TabMisc, TabSettings = CreateTab("Combat"), CreateTab("Visuals"), CreateTab("Move"), CreateTab("Misc"), CreateTab("Settings")
     task.spawn(function() task.wait(0.1) if Tabs[1] then 
         Tabs[1].Scroller.Visible=true Tabs[1].Btn.TextColor3=Colors.Text 
         Tabs[1].Und.Size=UDim2.new(1,0,0,2) Tabs[1].Und.Position=UDim2.new(0,0,1,2) 
@@ -607,6 +608,45 @@ LoadGalaxy = function()
             end
             if root:FindFirstChild("FlyG") then root.FlyG:Destroy() end
             if root:FindFirstChild("FlyV") then root.FlyV:Destroy() end
+        end
+    end)
+    
+    -- // MOVEMENT (TELEPORTS) //
+    local function getHRP()
+        return LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    end
+
+    AddButton(TabMovement, "Save Position 1", function()
+        local hrp = getHRP()
+        if hrp then 
+            TP1 = hrp.CFrame
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", {Title="GALAXY", Text="Position 1 Saved!", Duration=2}) end)
+        end
+    end)
+    AddButton(TabMovement, "Teleport 1  [B]", function()
+        local hrp = getHRP()
+        if hrp and TP1 then hrp.CFrame = TP1 end
+    end)
+    AddButton(TabMovement, "Save Position 2", function()
+        local hrp = getHRP()
+        if hrp then 
+            TP2 = hrp.CFrame
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", {Title="GALAXY", Text="Position 2 Saved!", Duration=2}) end)
+        end
+    end)
+    AddButton(TabMovement, "Teleport 2  [N]", function()
+        local hrp = getHRP()
+        if hrp and TP2 then hrp.CFrame = TP2 end
+    end)
+
+    Connect(UIS.InputBegan, function(input, g)
+        if g then return end
+        if input.KeyCode == Enum.KeyCode.B then
+            local hrp = getHRP()
+            if hrp and TP1 then hrp.CFrame = TP1 end
+        elseif input.KeyCode == Enum.KeyCode.N then
+            local hrp = getHRP()
+            if hrp and TP2 then hrp.CFrame = TP2 end
         end
     end)
     

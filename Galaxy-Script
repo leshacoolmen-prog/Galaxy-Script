@@ -168,38 +168,6 @@ LoadGalaxy = function()
             end
         end
     end)
-
-        end
-    end)
-
-    local function UpdTheme()
-        local c = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
-        Watermark.TextColor3 = c
-        if WF:FindFirstChild("UIStroke") then WF.UIStroke.Color = c end
-        if KeyList:FindFirstChild("UIStroke") then KeyList.UIStroke.Color = c end
-        if MainFrame:FindFirstChild("UIStroke") then MainFrame.UIStroke.Color = c end
-        if MainFrame:FindFirstChild("Glow") then MainFrame.Glow.ImageColor3 = c end
-        if TeleportGui and TeleportGui:FindFirstChild("UIStroke") then TeleportGui.UIStroke.Color = c end
-        for _, item in pairs(ThemeObjects) do 
-            if item.Object and item.Object.Parent then 
-                item.Object[item.Property] = c
-            end
-        end
-        for _, f in pairs(ArrayList:GetChildren()) do
-            if f:IsA("Frame") then
-                if f:FindFirstChild("UIStroke") then f.UIStroke.Color = c end
-                if f:FindFirstChildOfClass("TextLabel") then f:FindFirstChildOfClass("TextLabel").TextColor3 = c end
-            end
-        end
-    end
-
-    Connect(RS.Heartbeat, function()
-        if config.theme == "Rainbow" then
-            rainbowColor = Color3.fromHSV(tick() % 5 / 5, 0.8, 1)
-            UpdTheme()
-        end
-    end)
-
     -- // UI PRE-SETUP (v11.0 CYBER SLATE) //
     if LP.PlayerGui:FindFirstChild("GalaxyX") then LP.PlayerGui.GalaxyX:Destroy() end
     
@@ -872,6 +840,37 @@ LoadGalaxy = function()
         if isMenuOpen then UIS.MouseBehavior = "Default"; UIS.MouseIconEnabled = true end
     end)
     
+    function UpdTheme()
+        local c = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
+        Watermark.TextColor3 = c
+        if WF and WF:FindFirstChild("UIStroke") then WF.UIStroke.Color = c end
+        if KeyList and KeyList:FindFirstChild("UIStroke") then KeyList.UIStroke.Color = c end
+        if MainFrame and MainFrame:FindFirstChild("UIStroke") then MainFrame.UIStroke.Color = c end
+        if MainFrame and MainFrame:FindFirstChild("Glow") then MainFrame.Glow.ImageColor3 = c end
+        if TeleportGui and TeleportGui:FindFirstChild("UIStroke") then TeleportGui.UIStroke.Color = c end
+        for _, item in pairs(ThemeObjects) do 
+            if item.Object and item.Object.Parent then 
+                item.Object[item.Property] = c
+            end
+        end
+        if ArrayList then
+            for _, f in pairs(ArrayList:GetChildren()) do
+                if f:IsA("Frame") then
+                    if f:FindFirstChild("UIStroke") then f.UIStroke.Color = c end
+                    if f:FindFirstChildOfClass("TextLabel") then f:FindFirstChildOfClass("TextLabel").TextColor3 = c end
+                end
+            end
+        end
+    end
+
+    Connect(RS.Heartbeat, function()
+        if config.theme == "Rainbow" then
+            rainbowColor = Color3.fromHSV(tick() % 5 / 5, 0.8, 1)
+            UpdTheme()
+        end
+    end)
+    UpdTheme()
+
     game:GetService("StarterGui"):SetCore("SendNotification", {Title = "GALAXY X", Text = "Cyber Slate v11 Loaded", Duration = 5})
 end
 

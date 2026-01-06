@@ -615,7 +615,41 @@ LoadGalaxy = function()
     local function getHRP()
         return LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
     end
+    local TeleportGui = Create("Frame", ScreenGui, {Name="TeleportGui", Size=UDim2.new(0,180,0,170), Position=UDim2.new(0,20,0,0.6), BackgroundColor3=Colors.Background, Visible=false, Active=true, Draggable=true})
+    AddCorner(TeleportGui, 10); local tks = AddStroke(TeleportGui, Colors.Accent, 1, 0.6); RegisterTheme(tks, "Color")
+    local TH = Create("Frame", TeleportGui, {Size=UDim2.new(1,0,0,30), BackgroundColor3=Colors.TopBar}); AddCorner(TH, 10)
+    Create("Frame", TH, {Size=UDim2.new(1,0,0,10), Position=UDim2.new(0,0,1,-10), BackgroundColor3=Colors.TopBar, BorderSizePixel=0})
+    Create("TextLabel", TH, {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, Text="Teleports", Font="GothamBlack", TextColor3=Colors.Text, TextSize=12})
+    
+    local TC = Create("Frame", TeleportGui, {Name="Container", Size=UDim2.new(1,0,1,-35), Position=UDim2.new(0,0,0,35), BackgroundTransparency=1})
+    Create("UIListLayout", TC, {Padding=UDim.new(0,5), HorizontalAlignment="Center", VerticalAlignment="Top"})
+    Create("UIPadding", TC, {PaddingTop=UDim.new(0,5)})
 
+    local function makeMiniBtn(txt, callback)
+        local b = Create("TextButton", TC, {Size=UDim2.new(0.9,0,0,26), BackgroundColor3=Colors.Item, Text=txt, Font="GothamBold", TextColor3=Colors.Colors and Colors.Text or Color3.new(1,1,1), TextSize=11})
+        AddCorner(b, 6); local s = AddStroke(b, Colors.Accent, 1, 0.4); RegisterTheme(s, "Color")
+        b.MouseButton1Click:Connect(callback)
+        return b
+    end
+
+    local s1 = makeMiniBtn("Save Position 1", function()
+        local hrp = getHRP()
+        if hrp then TP1 = hrp.CFrame; pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", {Title="GALAXY", Text="Pos 1 Saved!", Duration=2}) end) end
+    end)
+    local t1 = makeMiniBtn("Teleport 1 [B]", function()
+        local hrp = getHRP()
+        if hrp and TP1 then hrp.CFrame = TP1 end
+    end)
+    local s2 = makeMiniBtn("Save Position 2", function()
+        local hrp = getHRP()
+        if hrp then TP2 = hrp.CFrame; pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", {Title="GALAXY", Text="Pos 2 Saved!", Duration=2}) end) end
+    end)
+    local t2 = makeMiniBtn("Teleport 2 [N]", function()
+        local hrp = getHRP()
+        if hrp and TP2 then hrp.CFrame = TP2 end
+    end)
+
+    AddToggle(TabMovement, "Teleport GUI", false, function(s) TeleportGui.Visible = s end)
     AddButton(TabMovement, "Save Position 1", function()
         local hrp = getHRP()
         if hrp then 

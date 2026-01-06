@@ -101,6 +101,7 @@ local function LoadGalaxy()
         wallCheck = true,
         usePrediction = true,
         predictionFactor = 0.05,
+        aimSmoothing = 1, -- 1 = Instant, Higher = Smoother
         espMode = "All", -- Default to ALL for max detection
         theme = "Rainbow",
         
@@ -815,7 +816,13 @@ local function LoadGalaxy()
             if best then
                 local part = getBestPart(best); local pos = part.Position
                 if config.usePrediction and best:FindFirstChild("HumanoidRootPart") then pos = pos + (best.HumanoidRootPart.Velocity * config.predictionFactor) end
-                Camera.CFrame = CFrame.new(Camera.CFrame.Position, pos)
+                
+                local targetCF = CFrame.new(Camera.CFrame.Position, pos)
+                if config.aimSmoothing > 1 then
+                    Camera.CFrame = Camera.CFrame:Lerp(targetCF, 1 / config.aimSmoothing)
+                else
+                    Camera.CFrame = targetCF
+                end
             end
         end
 
@@ -969,6 +976,7 @@ local function LoadGalaxy()
     AddSlider(TabCombat, "Knife Range", 5, 30, 15, function(v) config.knifeRange = v end)
     
     AddToggle(TabCombat, "No Recoil", false, function(s) config.noRecoil = s end) -- Defuse Division / Universal
+    AddSlider(TabCombat, "Smoothing", 1, 10, 1, function(v) config.aimSmoothing = v end)
 
     AddToggle(TabCombat, "Inf Ammo (Univ)", false, function(s) config.infAmmo = s end, "ammo")
     AddToggle(TabCombat, "Wall Check", true, function(s) config.wallCheck = s end, "wall")
@@ -1308,16 +1316,37 @@ local function LoadGalaxy()
     end)
 
     AddButton(TabSettings, "UNLOAD CHEAT", function()
+        -- 1. Disconnect all events
         for _, c in pairs(Connections) do c:Disconnect() end
         RunService:UnbindFromRenderStep("GalaxyTP") 
-        if currentSeat then pcall(function() currentSeat:Destroy() end) end
         
-        ScreenGui:Destroy()
-        -- Reset Fly
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.PlatformStand = false
+        -- 2. Deep Clean ESP from Workspace
+        for _, p in pairs(Players:GetPlayers()) do
+            if p.Character then ClearVisuals(p.Character) end
         end
-        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "GALAXY", Text = "Unloaded Successfully", Duration = 3})
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v.Name == "G_Box" or v.Name == "G_Beam" or v.Name == "G_Att" or v.Name == "invischair" then
+                pcall(function() v:Destroy() end)
+            end
+        end
+        
+        -- 3. Reset Character State
+        if LocalPlayer.Character then
+            if LocalPlayer.Character:FindFirstChild("Humanoid") then
+                LocalPlayer.Character.Humanoid.PlatformStand = false
+                LocalPlayer.Character.Humanoid.WalkSpeed = 16
+                LocalPlayer.Character.Humanoid.JumpPower = 50
+            end
+            for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
+                if v:IsA("BasePart") then v.CanCollide = true end
+            end
+        end
+
+        -- 4. Destroy UI
+        ScreenGui:Destroy()
+        if KeySystemGui then KeySystemGui:Destroy() end
+        
+        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "GALAXY", Text = "Fully Cleared & Unloaded", Duration = 3})
     end)
 
     -- // ANIMATED MENU CONTROLS //

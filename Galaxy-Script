@@ -416,8 +416,15 @@ LoadGalaxy = function()
         local char = LP.Character; if not char or not char:FindFirstChild("Humanoid") then return end
         local hum = char.Humanoid
         if config.walkSpeed > 16 then hum.WalkSpeed = config.walkSpeed end
-        if config.jumpPower > 50 then hum.JumpPower = config.jumpPower end
-        if config.bhop and hum.MoveDirection.Magnitude > 0 and UIS:IsKeyDown(Enum.KeyCode.Space) then if hum.FloorMaterial ~= Enum.Material.Air then hum.Jump = true; local r = char:FindFirstChild("HumanoidRootPart"); if r then r.Velocity += hum.MoveDirection * 5 end end end
+        if config.jumpPower > 50 then hum.UseJumpPower = true; hum.JumpPower = config.jumpPower end
+        if config.bhop and hum.MoveDirection.Magnitude > 0 and UIS:IsKeyDown(Enum.KeyCode.Space) then 
+            if hum.FloorMaterial ~= Enum.Material.Air then 
+                hum.Jump = true
+            else
+                local r = char:FindFirstChild("HumanoidRootPart")
+                if r then r.Velocity += hum.MoveDirection * 1.5 end -- Air acceleration
+            end 
+        end
         if config.noclip then for _,v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end end
         if config.antiAim then local r = char:FindFirstChild("HumanoidRootPart"); if r then r.CFrame *= CFrame.Angles(0, math.rad(100), 0) * CFrame.Angles(math.rad(math.random(-20,20)), 0, 0) end end
         if config.infAmmo then for _,v in pairs(char:GetDescendants()) do if v:IsA("IntValue") or v:IsA("NumberValue") then local n = v.Name:lower(); if n=="ammo" or n=="clip" or n=="mag" then v.Value = 999 end end end end
@@ -477,7 +484,8 @@ LoadGalaxy = function()
                 
                 local targetCF = CFrame.lookAt(Camera.CFrame.Position, pos)
                 if config.aimSmoothing > 1 then
-                    Camera.CFrame = Camera.CFrame:Lerp(targetCF, 0.25 / config.aimSmoothing) -- Faster Lerp base
+                    local jitter = Vector3.new(math.random(-10,10)/1000, math.random(-10,10)/1000, math.random(-10,10)/1000)
+                    Camera.CFrame = Camera.CFrame:Lerp(targetCF * CFrame.Angles(jitter.X, jitter.Y, jitter.Z), 0.25 / config.aimSmoothing)
                 else
                     Camera.CFrame = targetCF
                 end
@@ -565,6 +573,7 @@ LoadGalaxy = function()
     AddToggle(TabMisc, "Speed BHop", false, function(s) config.bhop = s end, "bhop")
     AddSlider(TabMisc, "Speed", 16, 200, 16, function(v) config.walkSpeed = v end)
     AddSlider(TabMisc, "Jump", 50, 300, 50, function(v) config.jumpPower = v end)
+    AddToggle(TabMisc, "Teleport GUI", false, function(s) TeleportGui.Visible = s end)
     
     -- CUSTOM THIRD PERSON (ShiftLock Style)
     local CamRot = Vector2.new(0,0)
@@ -615,6 +624,17 @@ LoadGalaxy = function()
     local function getHRP()
         return LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
     end
+    
+    local function safeTeleport(cf)
+        local hrp = getHRP()
+        if hrp and cf then
+            local offset = Vector3.new(math.random(-10,10)/100, 0, math.random(-10,10)/100) -- Small random offset for bypass
+            hrp.CFrame = cf + offset
+            task.wait(0.05)
+            hrp.Velocity = Vector3.new(0,0,0) -- Stop momentum to avoid rubberbanding
+        end
+    end
+
     local TeleportGui = Create("Frame", ScreenGui, {Name="TeleportGui", Size=UDim2.new(0,180,0,170), Position=UDim2.new(0,20,0,0.6), BackgroundColor3=Colors.Background, Visible=false, Active=true, Draggable=true})
     AddCorner(TeleportGui, 10); local tks = AddStroke(TeleportGui, Colors.Accent, 1, 0.6); RegisterTheme(tks, "Color")
     local TH = Create("Frame", TeleportGui, {Size=UDim2.new(1,0,0,30), BackgroundColor3=Colors.TopBar}); AddCorner(TH, 10)
@@ -637,19 +657,18 @@ LoadGalaxy = function()
         if hrp then TP1 = hrp.CFrame; pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", {Title="GALAXY", Text="Pos 1 Saved!", Duration=2}) end) end
     end)
     local t1 = makeMiniBtn("Teleport 1 [B]", function()
-        local hrp = getHRP()
-        if hrp and TP1 then hrp.CFrame = TP1 end
+        safeTeleport(TP1)
     end)
     local s2 = makeMiniBtn("Save Position 2", function()
         local hrp = getHRP()
         if hrp then TP2 = hrp.CFrame; pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", {Title="GALAXY", Text="Pos 2 Saved!", Duration=2}) end) end
     end)
     local t2 = makeMiniBtn("Teleport 2 [N]", function()
-        local hrp = getHRP()
-        if hrp and TP2 then hrp.CFrame = TP2 end
+        safeTeleport(TP2)
     end)
 
-    AddToggle(TabMovement, "Teleport GUI", false, function(s) TeleportGui.Visible = s end)
+    -- Teleport GUI logic moved to Misc
+
     AddButton(TabMovement, "Save Position 1", function()
         local hrp = getHRP()
         if hrp then 
@@ -658,8 +677,7 @@ LoadGalaxy = function()
         end
     end)
     AddButton(TabMovement, "Teleport 1  [B]", function()
-        local hrp = getHRP()
-        if hrp and TP1 then hrp.CFrame = TP1 end
+        safeTeleport(TP1)
     end)
     AddButton(TabMovement, "Save Position 2", function()
         local hrp = getHRP()
@@ -669,18 +687,15 @@ LoadGalaxy = function()
         end
     end)
     AddButton(TabMovement, "Teleport 2  [N]", function()
-        local hrp = getHRP()
-        if hrp and TP2 then hrp.CFrame = TP2 end
+        safeTeleport(TP2)
     end)
 
     Connect(UIS.InputBegan, function(input, g)
         if g then return end
         if input.KeyCode == Enum.KeyCode.B then
-            local hrp = getHRP()
-            if hrp and TP1 then hrp.CFrame = TP1 end
+            safeTeleport(TP1)
         elseif input.KeyCode == Enum.KeyCode.N then
-            local hrp = getHRP()
-            if hrp and TP2 then hrp.CFrame = TP2 end
+            safeTeleport(TP2)
         end
     end)
     

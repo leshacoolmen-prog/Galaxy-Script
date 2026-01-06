@@ -169,18 +169,34 @@ LoadGalaxy = function()
         end
     end)
 
+        end
+    end)
+
+    local function UpdTheme()
+        local c = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
+        Watermark.TextColor3 = c
+        if WF:FindFirstChild("UIStroke") then WF.UIStroke.Color = c end
+        if KeyList:FindFirstChild("UIStroke") then KeyList.UIStroke.Color = c end
+        if MainFrame:FindFirstChild("UIStroke") then MainFrame.UIStroke.Color = c end
+        if MainFrame:FindFirstChild("Glow") then MainFrame.Glow.ImageColor3 = c end
+        if TeleportGui and TeleportGui:FindFirstChild("UIStroke") then TeleportGui.UIStroke.Color = c end
+        for _, item in pairs(ThemeObjects) do 
+            if item.Object and item.Object.Parent then 
+                item.Object[item.Property] = c
+            end
+        end
+        for _, f in pairs(ArrayList:GetChildren()) do
+            if f:IsA("Frame") then
+                if f:FindFirstChild("UIStroke") then f.UIStroke.Color = c end
+                if f:FindFirstChildOfClass("TextLabel") then f:FindFirstChildOfClass("TextLabel").TextColor3 = c end
+            end
+        end
+    end
+
     Connect(RS.Heartbeat, function()
         if config.theme == "Rainbow" then
             rainbowColor = Color3.fromHSV(tick() % 5 / 5, 0.8, 1)
-            for _, item in pairs(ThemeObjects) do 
-                if item.Object and item.Object.Parent then 
-                    if item.Object:IsA("Frame") and item.Object.BackgroundColor3 ~= Color3.fromRGB(45,48,54) then
-                        item.Object[item.Property] = rainbowColor 
-                    elseif item.Object:IsA("TextLabel") or item.Object:IsA("UIStroke") or item.Object:IsA("ImageLabel") or item.Object:IsA("Beam") then
-                        item.Object[item.Property] = rainbowColor
-                    end
-                end 
-            end
+            UpdTheme()
         end
     end)
 
@@ -263,7 +279,7 @@ LoadGalaxy = function()
         return sc
     end
 
-    local TabCombat, TabVisuals, TabMovement, TabMisc, TabSettings = CreateTab("Combat"), CreateTab("Visuals"), CreateTab("Move"), CreateTab("Misc"), CreateTab("Settings")
+    local TabCombat, TabVisuals, TabMisc, TabSettings = CreateTab("Combat"), CreateTab("Visuals"), CreateTab("Misc"), CreateTab("Settings")
     task.spawn(function() task.wait(0.1) if Tabs[1] then 
         Tabs[1].Scroller.Visible=true Tabs[1].Btn.TextColor3=Colors.Text 
         Tabs[1].Und.Size=UDim2.new(1,0,0,2) Tabs[1].Und.Position=UDim2.new(0,0,1,2) 
@@ -422,7 +438,11 @@ LoadGalaxy = function()
                 hum.Jump = true
             else
                 local r = char:FindFirstChild("HumanoidRootPart")
-                if r then r.Velocity += hum.MoveDirection * 1.5 end -- Air acceleration
+                if r then 
+                    local currentVel = r.Velocity
+                    local boost = hum.MoveDirection * 5.0 -- Much stronger air boost for higher speed
+                    r.Velocity = Vector3.new(currentVel.X + boost.X, currentVel.Y, currentVel.Z + boost.Z)
+                end
             end 
         end
         if config.noclip then for _,v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end end
@@ -542,6 +562,49 @@ LoadGalaxy = function()
         if char:FindFirstChild("Head") and char.Head:FindFirstChild("G_ChinaHat") then char.Head.G_ChinaHat:Destroy() end
     end
 
+    -- // MOVEMENT (TELEPORTS) //
+    local function getHRP()
+        return LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    end
+    
+    local function safeTeleport(cf)
+        local hrp = getHRP()
+        if hrp and cf then
+            local offset = Vector3.new(math.random(-10,10)/100, 0, math.random(-10,10)/100)
+            hrp.CFrame = cf + offset
+            task.wait(0.05)
+            hrp.Velocity = Vector3.new(0,0,0)
+        end
+    end
+
+    local TeleportGui = Create("Frame", ScreenGui, {Name="TeleportGui", Size=UDim2.new(0,180,0,170), Position=UDim2.new(0,20,0,0.6), BackgroundColor3=Colors.Background, Visible=false, Active=true, Draggable=true, ZIndex=5})
+    AddCorner(TeleportGui, 10); local tks = AddStroke(TeleportGui, Colors.Accent, 1, 0.6); RegisterTheme(tks, "Color")
+    local THt = Create("Frame", TeleportGui, {Size=UDim2.new(1,0,0,30), BackgroundColor3=Colors.TopBar, ZIndex=6}); AddCorner(THt, 10)
+    Create("Frame", THt, {Size=UDim2.new(1,0,0,10), Position=UDim2.new(0,0,1,-10), BackgroundColor3=Colors.TopBar, BorderSizePixel=0, ZIndex=6})
+    local WatermarkTele = Create("TextLabel", THt, {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, Text="Teleports", Font="GothamBlack", TextColor3=Colors.Text, TextSize=12, ZIndex=7})
+    
+    local TC = Create("Frame", TeleportGui, {Name="Container", Size=UDim2.new(1,0,1,-35), Position=UDim2.new(0,0,0,35), BackgroundTransparency=1})
+    Create("UIListLayout", TC, {Padding=UDim.new(0,5), HorizontalAlignment="Center", VerticalAlignment="Top"})
+    Create("UIPadding", TC, {PaddingTop=UDim.new(0,5)})
+
+    local function makeMiniBtn(txt, callback)
+        local b = Create("TextButton", TC, {Size=UDim2.new(0.9,0,0,26), BackgroundColor3=Colors.Item, Text=txt, Font="GothamBold", TextColor3=Color3.new(1,1,1), TextSize=11})
+        AddCorner(b, 6); local s = AddStroke(b, Colors.Accent, 1, 0.4); RegisterTheme(s, "Color")
+        b.MouseButton1Click:Connect(callback)
+        return b
+    end
+
+    makeMiniBtn("Save Position 1", function()
+        local hrp = getHRP()
+        if hrp then TP1 = hrp.CFrame; pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", {Title="GALAXY", Text="Pos 1 Saved!", Duration=2}) end) end
+    end)
+    makeMiniBtn("Teleport 1 [B]", function() safeTeleport(TP1) end)
+    makeMiniBtn("Save Position 2", function()
+        local hrp = getHRP()
+        if hrp then TP2 = hrp.CFrame; pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", {Title="GALAXY", Text="Pos 2 Saved!", Duration=2}) end) end
+    end)
+    makeMiniBtn("Teleport 2 [N]", function() safeTeleport(TP2) end)
+
     -- // BINDING // 
     AddToggle(TabCombat, "Aimbot", false, function(s) aimEnabled = s end, "aim")
     AddToggle(TabCombat, "TriggerBot", false, function(s) triggerEnabled = s end, "trig")
@@ -620,85 +683,6 @@ LoadGalaxy = function()
         end
     end)
     
-    -- // MOVEMENT (TELEPORTS) //
-    local function getHRP()
-        return LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-    end
-    
-    local function safeTeleport(cf)
-        local hrp = getHRP()
-        if hrp and cf then
-            local offset = Vector3.new(math.random(-10,10)/100, 0, math.random(-10,10)/100) -- Small random offset for bypass
-            hrp.CFrame = cf + offset
-            task.wait(0.05)
-            hrp.Velocity = Vector3.new(0,0,0) -- Stop momentum to avoid rubberbanding
-        end
-    end
-
-    local TeleportGui = Create("Frame", ScreenGui, {Name="TeleportGui", Size=UDim2.new(0,180,0,170), Position=UDim2.new(0,20,0,0.6), BackgroundColor3=Colors.Background, Visible=false, Active=true, Draggable=true})
-    AddCorner(TeleportGui, 10); local tks = AddStroke(TeleportGui, Colors.Accent, 1, 0.6); RegisterTheme(tks, "Color")
-    local TH = Create("Frame", TeleportGui, {Size=UDim2.new(1,0,0,30), BackgroundColor3=Colors.TopBar}); AddCorner(TH, 10)
-    Create("Frame", TH, {Size=UDim2.new(1,0,0,10), Position=UDim2.new(0,0,1,-10), BackgroundColor3=Colors.TopBar, BorderSizePixel=0})
-    Create("TextLabel", TH, {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, Text="Teleports", Font="GothamBlack", TextColor3=Colors.Text, TextSize=12})
-    
-    local TC = Create("Frame", TeleportGui, {Name="Container", Size=UDim2.new(1,0,1,-35), Position=UDim2.new(0,0,0,35), BackgroundTransparency=1})
-    Create("UIListLayout", TC, {Padding=UDim.new(0,5), HorizontalAlignment="Center", VerticalAlignment="Top"})
-    Create("UIPadding", TC, {PaddingTop=UDim.new(0,5)})
-
-    local function makeMiniBtn(txt, callback)
-        local b = Create("TextButton", TC, {Size=UDim2.new(0.9,0,0,26), BackgroundColor3=Colors.Item, Text=txt, Font="GothamBold", TextColor3=Colors.Colors and Colors.Text or Color3.new(1,1,1), TextSize=11})
-        AddCorner(b, 6); local s = AddStroke(b, Colors.Accent, 1, 0.4); RegisterTheme(s, "Color")
-        b.MouseButton1Click:Connect(callback)
-        return b
-    end
-
-    local s1 = makeMiniBtn("Save Position 1", function()
-        local hrp = getHRP()
-        if hrp then TP1 = hrp.CFrame; pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", {Title="GALAXY", Text="Pos 1 Saved!", Duration=2}) end) end
-    end)
-    local t1 = makeMiniBtn("Teleport 1 [B]", function()
-        safeTeleport(TP1)
-    end)
-    local s2 = makeMiniBtn("Save Position 2", function()
-        local hrp = getHRP()
-        if hrp then TP2 = hrp.CFrame; pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", {Title="GALAXY", Text="Pos 2 Saved!", Duration=2}) end) end
-    end)
-    local t2 = makeMiniBtn("Teleport 2 [N]", function()
-        safeTeleport(TP2)
-    end)
-
-    -- Teleport GUI logic moved to Misc
-
-    AddButton(TabMovement, "Save Position 1", function()
-        local hrp = getHRP()
-        if hrp then 
-            TP1 = hrp.CFrame
-            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", {Title="GALAXY", Text="Position 1 Saved!", Duration=2}) end)
-        end
-    end)
-    AddButton(TabMovement, "Teleport 1  [B]", function()
-        safeTeleport(TP1)
-    end)
-    AddButton(TabMovement, "Save Position 2", function()
-        local hrp = getHRP()
-        if hrp then 
-            TP2 = hrp.CFrame
-            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", {Title="GALAXY", Text="Position 2 Saved!", Duration=2}) end)
-        end
-    end)
-    AddButton(TabMovement, "Teleport 2  [N]", function()
-        safeTeleport(TP2)
-    end)
-
-    Connect(UIS.InputBegan, function(input, g)
-        if g then return end
-        if input.KeyCode == Enum.KeyCode.B then
-            safeTeleport(TP1)
-        elseif input.KeyCode == Enum.KeyCode.N then
-            safeTeleport(TP2)
-        end
-    end)
-    
     -- TP handled by BindToRenderStep now
 
     local function AddKeybind(parent, text, default, id)
@@ -725,7 +709,8 @@ LoadGalaxy = function()
         for _,c in pairs(KC:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
         local function AddE(n,k) if not k then return end local f = Create("Frame", KC, {Size=UDim2.new(1,0,0,20), BackgroundTransparency=1})
             Create("TextLabel", f, {Text=n, Font="GothamBold", TextSize=12, TextColor3=Colors.Text, Size=UDim2.new(0.6,0,1,0), BackgroundTransparency=1, TextXAlignment="Left"})
-            Create("TextLabel", f, {Text="["..k.Name.."]", Font="GothamBold", TextSize=12, TextColor3=Colors.Accent, Size=UDim2.new(0.4,0,1,0), Position=UDim2.new(0.6,0,0,0), BackgroundTransparency=1, TextXAlignment="Right"})
+            local kl = Create("TextLabel", f, {Text="["..k.Name.."]", Font="GothamBold", TextSize=12, TextColor3=Colors.Accent, Size=UDim2.new(0.4,0,1,0), Position=UDim2.new(0.6,0,0,0), BackgroundTransparency=1, TextXAlignment="Right"})
+            RegisterTheme(kl, "TextColor3")
         end
         AddE("Menu", config.menuKey); AddE("Aimbot", config.aimKey)
         for id,k in pairs(config.binds) do AddE(id:upper(), k) end
@@ -744,7 +729,7 @@ LoadGalaxy = function()
     end)
 
     AddToggle(TabSettings, "Show Keybinds", config.keybindList, function(s) KeyList.Visible = s end)
-    AddDropdown(TabSettings, "Theme", {"Rainbow", "Purple", "Blue", "Red"}, function(v) if Themes[v] then CurrentTheme=Themes[v]; config.theme=v end end)
+    AddDropdown(TabSettings, "Theme", {"Rainbow", "Purple", "Blue", "Red"}, function(v) if Themes[v] then CurrentTheme=Themes[v]; config.theme=v; UpdTheme() end end)
     AddKeybind(TabSettings, "Menu Key", config.menuKey, "menuKey")
     AddKeybind(TabSettings, "Aimbot Bind", config.aimKey, "aimKey")
     AddKeybind(TabSettings, "Trigger Bind", config.triggerKey, "triggerKey")

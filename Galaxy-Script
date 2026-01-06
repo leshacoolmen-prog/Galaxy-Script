@@ -1,65 +1,77 @@
-local UserInputService = game:GetService("UserInputService")
-print("Galaxy: FIXED v3 LOADED")
-local RunService = game:GetService("RunService")
-local HttpService = game:GetService("HttpService")
-local ContextActionService = game:GetService("ContextActionService")
-local VirtualInputManager = nil
-pcall(function() VirtualInputManager = game:GetService("VirtualInputManager") end)
-print("Galaxy: Services Loaded")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-local Mouse = LocalPlayer:GetMouse()
+repeat task.wait() until game:IsLoaded()
+Players = game:GetService("Players")
+repeat task.wait() until Players.LocalPlayer
+LP, Camera = Players.LocalPlayer, workspace.CurrentCamera
+UIS, RS, HS, TS = game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("HttpService"), game:GetService("TweenService")
+Mouse, VIM = LP:GetMouse(), nil
+pcall(function() VIM = game:GetService("VirtualInputManager") end)
+TextService = game:GetService("TextService")
+
+local function Create(cls, parent, props)
+    local obj = Instance.new(cls)
+    for k, v in pairs(props or {}) do obj[k] = v end
+    obj.Parent = parent
+    return obj
+end
+
+local LoadGalaxy -- Forward Declaration
+
+local function AddCorner(obj, r) return Create("UICorner", obj, {CornerRadius = UDim.new(0, r or 8)}) end
+local function AddStroke(obj, color, thick, transparency) return Create("UIStroke", obj, {Color = color or Color3.fromRGB(50,50,50), Thickness = thick or 1, Transparency = transparency or 0}) end
+
+local function CheckAuth()
+    if isfile("galaxy.auth") then local s, d = pcall(function() return HS:JSONDecode(readfile("galaxy.auth")) end) if s and d.key=="2026" and os.time()-d.timestamp<86400 then return true end end return false
+end
+
+if not isfile("galaxy.name") then writefile("galaxy.name", LP.DisplayName) end
+local userName = isfile("galaxy.name") and readfile("galaxy.name") or LP.DisplayName
 
 -- // KEY SYSTEM //
-local KeySystemGui = Instance.new("ScreenGui")
-KeySystemGui.Name = "GalaxyKeySystem"
-KeySystemGui.Parent = LocalPlayer:WaitForChild("PlayerGui", 10) or LocalPlayer:WaitForChild("PlayerGui")
-KeySystemGui.ResetOnSpawn = false
+local KeySystemGui = Create("ScreenGui", LP:WaitForChild("PlayerGui"), {Name = "GalaxyKeySystem", ResetOnSpawn = false})
+local KeyFrame = Create("Frame", KeySystemGui, {Size = UDim2.new(0, 300, 0, 150), Position = UDim2.new(0.5, -150, 0.6, -75), BackgroundColor3 = Color3.fromRGB(20, 20, 25), BorderSizePixel = 0, BackgroundTransparency = 1, Visible = false})
+Create("UICorner", KeyFrame, {CornerRadius = UDim.new(0, 8)})
+local ks = Create("UIStroke", KeyFrame, {Color = Color3.fromRGB(170, 0, 255), Thickness = 2, Transparency = 1})
+Create("TextLabel", KeyFrame, {Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1, Text = "GALAXY PROTECTION", TextColor3 = Color3.new(1, 1, 1), Font = Enum.Font.GothamBlack, TextSize = 18, TextTransparency = 1})
+local KeyBox = Create("TextBox", KeyFrame, {Size = UDim2.new(0.8, 0, 0, 35), Position = UDim2.new(0.1, 0, 0.35, 0), BackgroundColor3 = Color3.fromRGB(35, 35, 40), TextColor3 = Color3.new(1, 1, 1), PlaceholderText = "Enter Access Key...", Font = Enum.Font.Gotham, TextSize = 14, BackgroundTransparency = 1, TextTransparency = 1})
+Create("UICorner", KeyBox, {CornerRadius = UDim.new(0, 6)})
+local KeyBtn = Create("TextButton", KeyFrame, {Size = UDim2.new(0.5, 0, 0, 30), Position = UDim2.new(0.25, 0, 0.7, 0), BackgroundColor3 = Color3.fromRGB(170, 0, 255), TextColor3 = Color3.new(1, 1, 1), Text = "Login", Font = Enum.Font.GothamBold, TextSize = 14, BackgroundTransparency = 1, TextTransparency = 1})
+Create("UICorner", KeyBtn, {CornerRadius = UDim.new(0, 6)})
 
-local KeyFrame = Instance.new("Frame")
-KeyFrame.Size = UDim2.new(0, 300, 0, 150)
-KeyFrame.Position = UDim2.new(0.5, -150, 0.5, -75)
-KeyFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-KeyFrame.BorderSizePixel = 0
-KeyFrame.Parent = KeySystemGui
-Instance.new("UICorner", KeyFrame).CornerRadius = UDim.new(0, 8)
+-- Welcome Screen
+local WelcomeFrame = Create("Frame", KeySystemGui, {Size = UDim2.new(0, 350, 0, 180), Position = UDim2.new(0.5, -175, 0.5, -90), BackgroundColor3 = Color3.fromRGB(15, 15, 20), BorderSizePixel = 0})
+AddCorner(WelcomeFrame, 10); AddStroke(WelcomeFrame, Color3.fromRGB(0, 242, 255), 2, 0.3)
+local WelcomeText = Create("TextLabel", WelcomeFrame, {Size = UDim2.new(1, -20, 0, 80), Position = UDim2.new(0,10,0,20), BackgroundTransparency = 1, Text = (isfile("galaxy.auth") and "Добро пожаловать " .. userName or "Приветствую новый пользователь " .. userName), TextColor3 = Color3.new(1, 1, 1), Font = Enum.Font.GothamBold, TextSize = 20, TextWrapped = true})
+local ContBtn = Create("TextButton", WelcomeFrame, {Size = UDim2.new(0, 160, 0, 35), Position = UDim2.new(0.5, -80, 0.6, 0), BackgroundColor3 = Color3.fromRGB(0, 242, 255), TextColor3 = Color3.new(0, 0, 0), Text = "Продолжить", Font = Enum.Font.GothamBlack, TextSize = 16})
+AddCorner(ContBtn, 8)
+local HintText = Create("TextLabel", WelcomeFrame, {Size = UDim2.new(1, 0, 0, 20), Position = UDim2.new(0, 0, 0.85, 0), BackgroundTransparency = 1, Text = "Открыть меню на Insert", TextColor3 = Color3.fromRGB(150, 150, 150), Font = Enum.Font.Gotham, TextSize = 14})
 
-local KeyStroke = Instance.new("UIStroke", KeyFrame)
-KeyStroke.Color = Color3.fromRGB(170, 0, 255)
-KeyStroke.Thickness = 2
+local function StartKeySystem()
+    local isAuthorized = CheckAuth()
+    game:GetService("TweenService"):Create(WelcomeFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Position = UDim2.new(0.5, -175, 0.4, -90), BackgroundTransparency = 1}):Play()
+    for _, v in pairs(WelcomeFrame:GetDescendants()) do if not v:IsA("UICorner") and not v:IsA("UIStroke") then game:GetService("TweenService"):Create(v, TweenInfo.new(0.4), {TextTransparency = 1, BackgroundTransparency = 1}):Play() end end
+    task.delay(0.5, function() 
+        WelcomeFrame:Destroy()
+        if isAuthorized then
+            KeySystemGui:Destroy()
+            LoadGalaxy()
+        else
+            KeyFrame.Visible = true
+            game:GetService("TweenService"):Create(KeyFrame, TweenInfo.new(0.6, Enum.EasingStyle.Quint), {Position = UDim2.new(0.5, -150, 0.5, -75), BackgroundTransparency = 0}):Play()
+            game:GetService("TweenService"):Create(ks, TweenInfo.new(0.8), {Transparency = 0}):Play()
+            for _, v in pairs(KeyFrame:GetDescendants()) do 
+                if v:IsA("TextLabel") or v:IsA("TextBox") or v:IsA("TextButton") then 
+                    game:GetService("TweenService"):Create(v, TweenInfo.new(0.8), {TextTransparency = 0, BackgroundTransparency = (v:IsA("TextLabel") and 1 or 0)}):Play() 
+                end 
+            end
+        end
+    end)
+end
+ContBtn.MouseButton1Click:Connect(StartKeySystem)
 
-local KeyTitle = Instance.new("TextLabel", KeyFrame)
-KeyTitle.Size = UDim2.new(1, 0, 0, 40)
-KeyTitle.BackgroundTransparency = 1
-KeyTitle.Text = "GALAXY PROTECTION"
-KeyTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-KeyTitle.Font = Enum.Font.GothamBlack
-KeyTitle.TextSize = 18
-
-local KeyBox = Instance.new("TextBox", KeyFrame)
-KeyBox.Size = UDim2.new(0.8, 0, 0, 35)
-KeyBox.Position = UDim2.new(0.1, 0, 0.35, 0)
-KeyBox.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-KeyBox.PlaceholderText = "Enter Access Key..."
-KeyBox.Font = Enum.Font.Gotham
-KeyBox.TextSize = 14
-Instance.new("UICorner", KeyBox).CornerRadius = UDim.new(0, 6)
-
-local KeyBtn = Instance.new("TextButton", KeyFrame)
-KeyBtn.Size = UDim2.new(0.5, 0, 0, 30)
-KeyBtn.Position = UDim2.new(0.25, 0, 0.7, 0)
-KeyBtn.BackgroundColor3 = Color3.fromRGB(170, 0, 255)
-KeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-KeyBtn.Text = "Login"
-KeyBtn.Font = Enum.Font.GothamBold
-KeyBtn.TextSize = 14
-Instance.new("UICorner", KeyBtn).CornerRadius = UDim.new(0, 6)
-
-local function LoadGalaxy()
+LoadGalaxy = function()
     -- // SYSTEM CONNECTIONS //
     local Connections = {}
+    local aimEnabled, triggerEnabled, triggerHolding = false, false, false
     local function Connect(signal, func)
         local c = signal:Connect(func)
         table.insert(Connections, c)
@@ -86,638 +98,249 @@ local function LoadGalaxy()
     local seatTeleportPosition = Vector3.new(-25.95, 400, 3537.55)
     local voidLevelYThreshold = -50
 
-    -- // CONFIGURATION //
-    local config = {
-        menuKey = Enum.KeyCode.Insert,
-        aimKey = Enum.KeyCode.E,
-        triggerKey = Enum.KeyCode.T,
-        espKey = Enum.KeyCode.R,
-        flyKey = Enum.KeyCode.F,
-        zoomKey = Enum.KeyCode.B,
-        
-        fovSize = 300,
-        silentAim = false,
-        showFov = true,
-        wallCheck = true,
-        usePrediction = true,
-        predictionFactor = 0.05,
-        aimSmoothing = 1, -- 1 = Instant, Higher = Smoother
-        espMode = "All", -- Default to ALL for max detection
-        theme = "Rainbow",
-        
-        -- New Features
-        walkSpeed = 16,
-        jumpPower = 50,
-        noclip = false,
-        tracers = false,
-        infAmmo = false,
-        
-        -- v6 Features
-        antiAim = false,
-        boxEsp = false,
-        -- v6 Features
-        antiAim = false,
-        boxEsp = false,
-        keybindList = true,
-        
-        -- v7
-        thirdPerson = false,
-        -- v7
-        thirdPerson = false,
-        thirdPersonDist = 20,
-        
-        -- v8.1 KnifeBot
-        knifeBot = false,
-        knifeRange = 15,
-        
-        -- v8.3 No Recoil
-        noRecoil = false,
-        
-        -- v10.1 Invisibility
-        invisibility = false, -- FE Seat Method
-        
-        -- Internal Binds Storage
-        binds = {}
+    local defCfg = {
+        menuKey=Enum.KeyCode.Insert, aimKey=nil, triggerKey=nil, espKey=nil, flyKey=nil, zoomKey=nil,
+        fovSize=300, silentAim=false, showFov=false, wallCheck=false, usePrediction=true, predictionFactor=0.05, aimSmoothing=1,
+        espMode="All", theme="Rainbow", walkSpeed=16, jumpPower=50, noclip=false, tracers=false, infAmmo=false,
+        antiAim=false, boxEsp=false, chams=false, chinaHat=false, keybindList=false, thirdPerson=false, thirdPersonDist=20, knifeBot=false, knifeRange=15, noRecoil=false, invisibility=false, binds={}
     }
+    local config = {}
+    local function ResetConfig() 
+        for k,v in pairs(defCfg) do config[k] = v end 
+        config.binds = {}
+        aimEnabled, triggerEnabled = false, false
+        -- Reset all HUD entries and return to defaults
+        if ArrayList then
+            for _,v in pairs(ArrayList:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
+        end
+        if RefreshKeyList then RefreshKeyList() end
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", {Title="GALAXY", Text="All Config & Binds Cleared", Duration=3}) end)
+    end
+    ResetConfig()
 
-    -- // THEME ENGINE //
     local Themes = {
-        Rainbow = {Main = Color3.fromRGB(20, 20, 25), Accent = Color3.fromRGB(0, 255, 150)}, -- Default to Mint/Neon
-        Purple = {Main = Color3.fromRGB(20, 20, 25), Accent = Color3.fromRGB(170, 0, 255)},
-        Blue = {Main = Color3.fromRGB(15, 20, 30), Accent = Color3.fromRGB(0, 150, 255)},
-        Red = {Main = Color3.fromRGB(25, 15, 15), Accent = Color3.fromRGB(255, 50, 50)}
+        Rainbow = {Main = Color3.fromRGB(20,20,25), Accent = Color3.fromRGB(0, 255, 150)},
+        Purple = {Main = Color3.fromRGB(20,20,25), Accent = Color3.fromRGB(170, 0, 255)},
+        Blue = {Main = Color3.fromRGB(15,20,30), Accent = Color3.fromRGB(0, 150, 255)},
+        Red = {Main = Color3.fromRGB(25,15,15), Accent = Color3.fromRGB(255, 50, 50)}
     }
-    local CurrentTheme = Themes.Rainbow
-    local ThemeObjects = {} 
+    local CurrentTheme, ThemeObjects, rainbowColor = Themes.Rainbow, {}, Color3.new(1,1,1)
     
-    local TweenService = game:GetService("TweenService")
-    local function Tween(obj, props, time)
-        TweenService:Create(obj, TweenInfo.new(time or 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props):Play()
+    local function RegisterTheme(obj, prop)
+        table.insert(ThemeObjects, {Object = obj, Property = prop, Type = "Accent"})
     end
 
-    -- // LOGIC LOOPS //
-    
-    -- NO RECOIL (Universal)
-    -- NO RECOIL (Universal v2 - Deep Scan)
+    local function Tween(obj, props, time) TS:Create(obj, TweenInfo.new(time or 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props):Play() end
+
     local function SilenceGun(tool)
         if not config.noRecoil then return end
-        
-        local function ScanTable(t, depth)
-            if depth > 3 then return end
+        local function Scan(t, d)
+            if d > 3 then return end
             for k, v in pairs(t) do
-                if type(v) == "number" then
-                    local name = tostring(k):lower()
-                    if name:find("recoil") or name:find("spread") or name:find("kick") or name:find("shake") then
-                        t[k] = 0
-                        print("Galaxy: Silenced " .. tostring(k))
-                    end
-                elseif type(v) == "table" then
-                    ScanTable(v, depth + 1)
-                end
+                if type(v) == "number" and (tostring(k):lower():find("recoil") or tostring(k):lower():find("spread")) then t[k] = 0
+                elseif type(v) == "table" then Scan(v, d + 1) end
             end
         end
-
-        print("Galaxy: Scanning Tool " .. tool.Name)
-        
-        -- 1. ModuleScript Scan
         for _, v in pairs(tool:GetDescendants()) do
-            if v:IsA("ModuleScript") then
-                local success, module = pcall(require, v)
-                if success and type(module) == "table" then
-                    ScanTable(module, 1)
-                end
-            elseif v:IsA("NumberValue") then
-                 local name = v.Name:lower()
-                 if name:find("recoil") or name:find("spread") or name:find("kick") then
-                     v.Value = 0
-                     print("Galaxy: Zeroed Value " .. v.Name)
-                 end
-            end
-        end
-        
-        -- 2. LocalScript Upvalue Scan (Xeno Support)
-        if debug and debug.getupvalues then
-             for _, v in pairs(tool:GetDescendants()) do
-                 if v:IsA("LocalScript") and v.Name:lower() ~= "client" then -- Skip generic names if risky
-                     -- Riskier, but needed for some ACS versions
-                     -- Logic omitted for safety/complexity unless requested, relying on Modules first.
-                 end
-             end
+            if v:IsA("ModuleScript") then local s, m = pcall(require, v); if s and type(m) == "table" then Scan(m, 1) end
+            elseif v:IsA("NumberValue") and v.Name:lower():find("recoil") then v.Value = 0 end
         end
     end
     
-    Connect(RunService.Stepped, function()
-        if config.noRecoil and LocalPlayer.Character then
-            local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-            if tool then
-                SilenceGun(tool)
-            end
-        end
-    end)
-    
-    -- KNIFEBOT LOGIC
-    Connect(RunService.Stepped, function()
-        if config.knifeBot and LocalPlayer.Character then
-            local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-            if tool then
-                local myRoot = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if myRoot then
-                    local closest = nil
-                    local minDst = config.knifeRange
+    Connect(RS.Stepped, function()
+        if not LP.Character then return end
+        local tool = LP.Character:FindFirstChildOfClass("Tool")
+        if tool then
+            if config.noRecoil then SilenceGun(tool) end
+            if config.knifeBot then
+                local root = LP.Character:FindFirstChild("HumanoidRootPart")
+                if root then
+                    local closest, minDst = nil, config.knifeRange
                     for _, p in pairs(Players:GetPlayers()) do
-                        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
-                            local dist = (p.Character.HumanoidRootPart.Position - myRoot.Position).Magnitude
-                            if dist < minDst then
-                                minDst = dist
-                                closest = p.Character.HumanoidRootPart
-                            end
+                        if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                            local d = (p.Character.HumanoidRootPart.Position - root.Position).Magnitude
+                            if d < minDst then minDst, closest = d, p.Character.HumanoidRootPart end
                         end
                     end
-                    
-                    if closest then
-                        -- Face Target (Instant match Y rotation)
-                        local lookPos = Vector3.new(closest.Position.X, myRoot.Position.Y, closest.Position.Z)
-                        myRoot.CFrame = CFrame.lookAt(myRoot.Position, lookPos)
-                        -- Activate
-                        tool:Activate()
-                    end
+                    if closest then root.CFrame = CFrame.lookAt(root.Position, Vector3.new(closest.Position.X, root.Position.Y, closest.Position.Z)); tool:Activate() end
                 end
             end
         end
     end)
- 
-    local rainbowColor = Color3.new(1,1,1)
 
-    local function RegisterThemeObject(obj, prop, type)
-        table.insert(ThemeObjects, {Object = obj, Property = prop, Type = type})
-    end
-
-    Connect(RunService.Heartbeat, function()
+    Connect(RS.Heartbeat, function()
         if config.theme == "Rainbow" then
             rainbowColor = Color3.fromHSV(tick() % 5 / 5, 0.8, 1)
-            for _, item in pairs(ThemeObjects) do
-                if item.Type == "Accent" then item.Object[item.Property] = rainbowColor end
+            for _, item in pairs(ThemeObjects) do 
+                if item.Object and item.Object.Parent then 
+                    if item.Object:IsA("Frame") and item.Object.BackgroundColor3 ~= Color3.fromRGB(45,48,54) then
+                        item.Object[item.Property] = rainbowColor 
+                    elseif item.Object:IsA("TextLabel") or item.Object:IsA("UIStroke") or item.Object:IsA("ImageLabel") or item.Object:IsA("Beam") then
+                        item.Object[item.Property] = rainbowColor
+                    end
+                end 
             end
         end
     end)
 
-    local function UpdateThemeColors(themeName)
-        if Themes[themeName] then
-            CurrentTheme = Themes[themeName]
-            config.theme = themeName
-            if themeName ~= "Rainbow" then
-                for _, item in pairs(ThemeObjects) do
-                    if item.Type == "Accent" then item.Object[item.Property] = CurrentTheme.Accent end
-                    if item.Type == "Main" then item.Object[item.Property] = CurrentTheme.Main end
-                end
-            end
-        end
-    end
-
-    -- // UI PRE-SETUP (v10.0 PREMIUM) //
-    if LocalPlayer.PlayerGui:FindFirstChild("GalaxyX") then LocalPlayer.PlayerGui.GalaxyX:Destroy() end
+    -- // UI PRE-SETUP (v11.0 CYBER SLATE) //
+    if LP.PlayerGui:FindFirstChild("GalaxyX") then LP.PlayerGui.GalaxyX:Destroy() end
     
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "GalaxyX"
-    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    ScreenGui.Parent = LP:WaitForChild("PlayerGui")
     ScreenGui.ResetOnSpawn = false
     ScreenGui.DisplayOrder = 10000 
     
-    -- // PREMIUM THEME DEFINITIONS //
-    local UI = {}
+    -- // CYBER SLATE COLORS //
     local Colors = {
-        Background = Color3.fromRGB(15, 15, 20),
-        Sidebar = Color3.fromRGB(25, 25, 30),
-        Item = Color3.fromRGB(30, 30, 35),
-        Hover = Color3.fromRGB(40, 40, 45),
-        Text = Color3.fromRGB(240, 240, 240),
-        TextDark = Color3.fromRGB(150, 150, 150),
-        Accent = Color3.fromRGB(170, 0, 255) -- Default Purple
+        Background = Color3.fromRGB(15, 16, 18), -- Deep Slate
+        Content = Color3.fromRGB(22, 23, 26),
+        TopBar = Color3.fromRGB(28, 30, 34),
+        Item = Color3.fromRGB(32, 34, 38),
+        Hover = Color3.fromRGB(45, 50, 58),
+        Text = Color3.fromRGB(255, 255, 255),
+        TextDark = Color3.fromRGB(130, 135, 145),
+        Accent = Color3.fromRGB(0, 242, 255) -- Cyan Glow
     }
 
-    -- Helper: Rounded Corner
-    local function AddCorner(obj, r)
-        local c = Instance.new("UICorner", obj)
-        c.CornerRadius = UDim.new(0, r or 6)
-        return c
-    end
-    
-    -- Helper: Stroke
-    local function AddStroke(obj, color, thick)
-        local s = Instance.new("UIStroke", obj)
-        s.Color = color or Color3.fromRGB(50,50,50)
-        s.Thickness = thick or 1
-        return s
-    end
 
-    -- // HUD & WATERMARK //
-    local Watermark = Instance.new("TextLabel", ScreenGui)
-    Watermark.Name = "Watermark"
-    Watermark.Position = UDim2.new(0, 10, 0, 10)
-    Watermark.Size = UDim2.new(0, 200, 0, 30)
-    Watermark.BackgroundTransparency = 1
-    Watermark.Text = "GALAXY X"
-    Watermark.Font = Enum.Font.GothamBlack
-    Watermark.TextColor3 = Colors.Accent
-    Watermark.TextSize = 20
-    Watermark.TextXAlignment = Enum.TextXAlignment.Left
-    AddStroke(Watermark, Color3.new(0,0,0), 2)
-    RegisterThemeObject(Watermark, "TextColor3", "Accent")
+    local WF = Create("Frame", ScreenGui, {Name="WF", Position=UDim2.new(0,15,0,15), Size=UDim2.new(0,110,0,32), BackgroundColor3=Colors.TopBar})
+    AddCorner(WF, 8); local ws = AddStroke(WF, Colors.Accent, 1, 0.4); RegisterTheme(ws, "Color")
+    local wl = Create("Frame", WF, {Size=UDim2.new(0,3,1,-12), Position=UDim2.new(0,6,0,6), BackgroundColor3=Colors.Accent}); RegisterTheme(wl, "BackgroundColor3")
+    local Watermark = Create("TextLabel", WF, {Position=UDim2.new(0,15,0,0), Size=UDim2.new(1,-15,1,0), BackgroundTransparency=1, Text="GALAXY <font color='#00f2ff'>X</font>", RichText=true, Font="GothamBlack", TextColor3=Colors.Text, TextSize=16, TextXAlignment="Left"})
 
-    local ArrayList = Instance.new("Frame", ScreenGui)
-    ArrayList.Name = "ArrayList"
-    ArrayList.Position = UDim2.new(0, 10, 0, 40)
-    ArrayList.Size = UDim2.new(0, 200, 0.5, 0)
-    ArrayList.BackgroundTransparency = 1
-    
-    local ArrayLayout = Instance.new("UIListLayout", ArrayList)
-    ArrayLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    ArrayLayout.Padding = UDim.new(0, 2)
+    local ArrayList = Create("Frame", ScreenGui, {Name="AL", Position=UDim2.new(0,15,0,55), Size=UDim2.new(0,200,0.5,0), BackgroundTransparency=1})
+    Create("UIListLayout", ArrayList, {SortOrder="LayoutOrder", Padding=UDim.new(0,6)})
 
     local function UpdateHUD(name, state)
         if state then
             if ArrayList:FindFirstChild(name) then return end
-            local l = Instance.new("TextLabel", ArrayList)
-            l.Name = name
-            l.Text = name
-            l.Font = Enum.Font.GothamBold
-            l.TextSize = 16
-            l.TextColor3 = Colors.Accent
-            l.BackgroundTransparency = 1
-            l.Size = UDim2.new(1, 0, 0, 20)
-            l.TextXAlignment = Enum.TextXAlignment.Left
-            AddStroke(l, Color3.new(0,0,0), 1)
-            RegisterThemeObject(l, "TextColor3", "Accent")
-            
-            -- Animation
-            l.TextTransparency = 1
-            Tween(l, {TextTransparency = 0}, 0.3)
-            
-            -- Sort by text length for a clean "Array List" look
+            local f = Create("Frame", ArrayList, {Name=name, Size=UDim2.new(0,0,0,24), BackgroundColor3=Colors.Item, BackgroundTransparency=0.2, ClipsDescendants=true})
+            AddCorner(f,4); local s = AddStroke(f, Colors.Accent,1,0.7); RegisterTheme(s, "Color")
+            local l = Create("TextLabel", f, {Text="  "..name.."  ", Font="GothamBold", TextSize=13, TextColor3=Colors.Accent, BackgroundTransparency=1, Size=UDim2.new(1,0,1,0), TextXAlignment="Left"})
+            RegisterTheme(l, "TextColor3")
+            local ts = TextService:GetTextSize(l.Text, 13, l.Font, Vector2.new(500,500))
+            Tween(f, {Size=UDim2.new(0, ts.X+8, 0, 24)}, 0.3)
             local entries = {}
-            for _, c in pairs(ArrayList:GetChildren()) do
-                if c:IsA("TextLabel") then table.insert(entries, c) end
-            end
-            table.sort(entries, function(a, b) return #a.Text > #b.Text end)
-            for i, v in ipairs(entries) do v.LayoutOrder = i end
+            for _,c in pairs(ArrayList:GetChildren()) do if c:IsA("Frame") then table.insert(entries,c) end end
+            table.sort(entries, function(a,b) return a.Size.X.Offset > b.Size.X.Offset end)
+            for i,v in ipairs(entries) do v.LayoutOrder = i end
         else
-            local l = ArrayList:FindFirstChild(name)
-            if l then 
-                Tween(l, {TextTransparency = 1}, 0.2)
-                task.delay(0.2, function() l:Destroy() end)
-            end
+            local f = ArrayList:FindFirstChild(name)
+            if f then Tween(f, {Size=UDim2.new(0,0,0,24), BackgroundTransparency=1}, 0.2) task.delay(0.2, function() f:Destroy() end) end
         end
     end
 
-    -- MAIN FRAME
-    local MainFrame = Instance.new("Frame", ScreenGui)
-    MainFrame.Name = "MainFrame"
-    MainFrame.BackgroundColor3 = Colors.Background
-    MainFrame.Position = UDim2.new(0.5, -275, 0.5, -225)
-    MainFrame.Size = UDim2.new(0, 550, 0, 450)
-    MainFrame.BorderSizePixel = 0
-    MainFrame.Active = true
-    MainFrame.Draggable = true
-    MainFrame.ClipsDescendants = false -- Allow shadow
-    MainFrame.Visible = false -- Start Hidden
-    AddCorner(MainFrame, 10)
-    
-    -- Shadow/Glow
-    local Shadow = Instance.new("ImageLabel", MainFrame)
-    Shadow.Name = "Shadow"
-    Shadow.AnchorPoint = Vector2.new(0.5, 0.5)
-    Shadow.Position = UDim2.new(0.5, 0, 0.5, 0)
-    Shadow.Size = UDim2.new(1, 120, 1, 120)
-    Shadow.Image = "rbxassetid://6014261993" -- Smooth Glow
-    Shadow.ImageColor3 = Color3.new(0,0,0)
-    Shadow.ImageTransparency = 0.4
-    Shadow.BackgroundTransparency = 1
-    Shadow.ZIndex = 0
-    
-    -- CONTENT HOLDER (For Clipping)
-    local ContentHolder = Instance.new("Frame", MainFrame)
-    ContentHolder.Name = "ContentHolder"
-    ContentHolder.Size = UDim2.new(1, 0, 1, 0)
-    ContentHolder.BackgroundTransparency = 1
-    ContentHolder.ClipsDescendants = true
-    AddCorner(ContentHolder, 10)
-    
-    -- Accent Line Top
-    local TopLine = Instance.new("Frame", ContentHolder)
-    TopLine.Size = UDim2.new(1, 0, 0, 2)
-    TopLine.BackgroundColor3 = Colors.Accent
-    TopLine.BorderSizePixel = 0
-    AddCorner(TopLine, 2)
-    RegisterThemeObject(TopLine, "BackgroundColor3", "Accent")
+    local MainFrame = Create("Frame", ScreenGui, {Name="MainFrame", BackgroundColor3=Colors.Background, Position=UDim2.new(0.5,-280,0.5,-200), Size=UDim2.new(0,560,0,400), Active=true, Draggable=true, Visible=false})
+    AddCorner(MainFrame, 12); local ms = AddStroke(MainFrame, Colors.Accent, 1, 0.6); RegisterTheme(ms, "Color")
+    local glow = Create("ImageLabel", MainFrame, {Name="Glow", AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.new(0.5,0,0.5,0), Size=UDim2.new(1,100,1,100), Image="rbxassetid://6014261993", ImageColor3=Colors.Accent, ImageTransparency=0.8, BackgroundTransparency=1, ZIndex=0})
+    RegisterTheme(glow, "ImageColor3")
 
-    -- Sidebar
-    local Sidebar = Instance.new("Frame", ContentHolder)
-    Sidebar.BackgroundColor3 = Colors.Sidebar
-    Sidebar.Size = UDim2.new(0, 160, 1, -2)
-    Sidebar.Position = UDim2.new(0, 0, 0, 2)
-    Sidebar.BorderSizePixel = 0
-    local SidebarCorner = AddCorner(Sidebar, 10)
-    
-    -- Fix Sidebar Corner (Square right side)
-    local SidebarFix = Instance.new("Frame", Sidebar)
-    SidebarFix.BorderSizePixel = 0
-    SidebarFix.BackgroundColor3 = Colors.Sidebar
-    SidebarFix.Size = UDim2.new(0, 10, 1, 0)
-    SidebarFix.Position = UDim2.new(1, -10, 0, 0)
-    
-    -- Title
-    local Title = Instance.new("TextLabel", Sidebar)
-    Title.Text = "GALAXY"
-    Title.Font = Enum.Font.GothamBlack
-    Title.TextColor3 = Colors.Text
-    Title.TextSize = 26
-    Title.Size = UDim2.new(1, -20, 0, 60)
-    Title.Position = UDim2.new(0, 20, 0, 10)
-    Title.BackgroundTransparency = 1
-    Title.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local SubTitle = Instance.new("TextLabel", Title)
-    SubTitle.Text = "PREMIUM"
-    SubTitle.Font = Enum.Font.GothamBold
-    SubTitle.TextColor3 = Colors.Accent
-    SubTitle.TextSize = 12
-    SubTitle.Position = UDim2.new(0, 0, 0, 36) -- Moved Lower to avoid overlap.
-    SubTitle.Size = UDim2.new(1, 0, 0, 20)
-    SubTitle.BackgroundTransparency = 1
-    SubTitle.TextXAlignment = Enum.TextXAlignment.Left
-    RegisterThemeObject(SubTitle, "TextColor3", "Accent")
+    local TopBar = Create("Frame", MainFrame, {Name="TopBar", BackgroundColor3=Colors.TopBar, Size=UDim2.new(1,0,0,50)})
+    AddCorner(TopBar, 12); Create("Frame", TopBar, {Size=UDim2.new(1,0,0,20), Position=UDim2.new(0,0,1,-20), BackgroundColor3=Colors.TopBar, BorderSizePixel=0})
+    Create("TextLabel", TopBar, {Text="GALAXY", Font="GothamBlack", TextColor3=Colors.Text, TextSize=18, Position=UDim2.new(0,20,0,0), Size=UDim2.new(0,100,1,0), BackgroundTransparency=1, TextXAlignment="Left"})
+    local TabHolder = Create("Frame", TopBar, {Position=UDim2.new(0,130,0,0), Size=UDim2.new(1,-140,1,0), BackgroundTransparency=1})
+    Create("UIListLayout", TabHolder, {FillDirection="Horizontal", SortOrder="LayoutOrder", Padding=UDim.new(0,10), VerticalAlignment="Center"})
 
-    -- Content Container
-    local Container = Instance.new("Frame", ContentHolder)
-    Container.BackgroundTransparency = 1
-    Container.Position = UDim2.new(0, 170, 0, 10)
-    Container.Size = UDim2.new(0, 370, 1, -20)
-    Container.ClipsDescendants = true
-
-    local Tabs = {}
-    local TabHeights = {} 
+    local ContentFrame = Create("Frame", MainFrame, {Name="Content", BackgroundColor3=Colors.Content, Position=UDim2.new(0,10,0,60), Size=UDim2.new(1,-20,1,-70)})
+    AddCorner(ContentFrame, 8)
     
-    local function CreateTab(name, iconId)
-        local btn = Instance.new("TextButton", Sidebar)
-        btn.Size = UDim2.new(1, -20, 0, 38)
-        btn.Position = UDim2.new(0, 10, 0, 80 + (#Tabs * 44))
-        btn.BackgroundColor3 = Colors.Sidebar
-        btn.Text = "      " .. name
-        btn.Font = Enum.Font.GothamBold
-        btn.TextColor3 = Colors.TextDark
-        btn.TextSize = 13
-        btn.TextXAlignment = Enum.TextXAlignment.Left
-        btn.AutoButtonColor = false
-        AddCorner(btn, 6)
-        
-        -- Selected Indicator
-        local ind = Instance.new("Frame", btn)
-        ind.Size = UDim2.new(0, 3, 0.6, 0)
-        ind.Position = UDim2.new(0, 0, 0.2, 0)
-        ind.BackgroundColor3 = Colors.Accent
-        ind.Visible = false
-        AddCorner(ind, 2)
-        RegisterThemeObject(ind, "BackgroundColor3", "Accent")
-
-        local frame = Instance.new("ScrollingFrame", Container)
-        frame.BackgroundTransparency = 1
-        frame.Size = UDim2.new(1, 0, 1, 0)
-        frame.CanvasSize = UDim2.new(0,0,0,0)
-        frame.ScrollBarThickness = 2
-        frame.ScrollBarImageColor3 = Color3.fromRGB(80,80,80)
-        frame.Visible = false
-        
-        TabHeights[frame] = 5
-        
-        -- Animation
-        btn.MouseEnter:Connect(function() 
-            if not ind.Visible then 
-                Tween(btn, {TextColor3 = Colors.Text, BackgroundColor3 = Colors.Hover}) 
-            end 
-        end)
-        btn.MouseLeave:Connect(function() 
-            if not ind.Visible then 
-                Tween(btn, {TextColor3 = Colors.TextDark, BackgroundColor3 = Colors.Sidebar}) 
-            end 
-        end)
-        
-        table.insert(Tabs, {Btn = btn, Frame = frame, Ind = ind})
-        
-        btn.MouseButton1Click:Connect(function()
-            for _, t in pairs(Tabs) do 
-                t.Frame.Visible = false
-                t.Ind.Visible = false
-                Tween(t.Btn, {TextColor3 = Colors.TextDark, BackgroundColor3 = Colors.Sidebar}) 
-            end
-            frame.Visible = true
-            ind.Visible = true
-            Tween(btn, {TextColor3 = Colors.Text, BackgroundColor3 = Colors.Item})
-        end)
-        return frame
+    local Tabs, TabHeights = {}, {}
+    local function CreateTab(name)
+        local btn = Create("TextButton", TabHolder, {Size=UDim2.new(0,80,0,30), BackgroundTransparency=1, Text=name, Font="GothamBold", TextColor3=Colors.TextDark, TextSize=13, AutoButtonColor = false})
+        local underline = Create("Frame", btn, {Size=UDim2.new(0,0,0,2), Position=UDim2.new(0.5,0,1,2), BackgroundColor3=Colors.Accent, BorderSizePixel=0})
+        AddCorner(underline, 1)
+        local sc = Create("ScrollingFrame", ContentFrame, {Name=name.."Tab", Size=UDim2.new(1,-20,1,-20), Position=UDim2.new(0,10,0,10), BackgroundTransparency=1, CanvasSize=UDim2.new(0,0,0,0), ScrollBarThickness=2, ScrollBarImageColor3=Colors.Accent, Visible=false})
+        TabHeights[sc] = 0
+        local function Select()
+            for _,t in pairs(Tabs) do t.Scroller.Visible=false Tween(t.Btn,{TextColor3=Colors.TextDark}) Tween(t.Und,{Size=UDim2.new(0,0,0,2),Position=UDim2.new(0.5,0,1,2)}) end
+            sc.Visible=true Tween(btn,{TextColor3=Colors.Text}) Tween(underline,{Size=UDim2.new(1,0,0,2),Position=UDim2.new(0,0,1,2)})
+        end
+        btn.MouseButton1Click:Connect(Select)
+        table.insert(Tabs, {Btn=btn, Scroller=sc, Und=underline})
+        return sc
     end
-    
-    local TabCombat = CreateTab("Combat")
-    local TabVisuals = CreateTab("Visuals")
-    local TabMisc = CreateTab("Misc")
-    local TabSettings = CreateTab("Settings")
-    
-    -- Select First
-    Tabs[1].Frame.Visible = true
-    Tabs[1].Ind.Visible = true
-    Tabs[1].Btn.TextColor3 = Colors.Text
-    Tabs[1].Btn.BackgroundColor3 = Colors.Item
 
-    -- // UI COMPONENTS //
-    local function UpdateLayout(parent, frame)
-        local y = TabHeights[parent] or 5
-        frame.Position = UDim2.new(0, 0, 0, y)
-        TabHeights[parent] = y + frame.Size.Y.Offset + 6
-        parent.CanvasSize = UDim2.new(0, 0, 0, TabHeights[parent] + 10)
+    local TabCombat, TabVisuals, TabMisc, TabSettings = CreateTab("Combat"), CreateTab("Visuals"), CreateTab("Misc"), CreateTab("Settings")
+    task.spawn(function() task.wait(0.1) if Tabs[1] then 
+        Tabs[1].Scroller.Visible=true Tabs[1].Btn.TextColor3=Colors.Text 
+        Tabs[1].Und.Size=UDim2.new(1,0,0,2) Tabs[1].Und.Position=UDim2.new(0,0,1,2) 
+    end end)
+    
+    local function UpdateLayout(p, f)
+        local y = TabHeights[p] or 5
+        f.Position=UDim2.new(0,0,0,y) TabHeights[p]=y+f.Size.Y.Offset+6 p.CanvasSize=UDim2.new(0,0,0,TabHeights[p]+10)
+    end
+
+    local function AddComp(p, t, h)
+        local f = Create("Frame", p, {Size=UDim2.new(1,0,0,h or 45), BackgroundColor3=Colors.Item})
+        AddCorner(f,6); UpdateLayout(p,f)
+        return f, Create("TextLabel", f, {Text=t, Font="GothamBold", TextColor3=Colors.Text, Size=UDim2.new(0.5,0,1,0), Position=UDim2.new(0,15,0,0), TextXAlignment="Left", TextSize=14, BackgroundTransparency=1})
     end
 
     local function AddToggle(parent, text, default, callback, id)
-        local f = Instance.new("Frame", parent)
-        f.Size = UDim2.new(1, -6, 0, 40)
-        f.BackgroundColor3 = Colors.Item
-        AddCorner(f, 6)
-        UpdateLayout(parent, f)
-        
-        local l = Instance.new("TextLabel", f)
-        l.Text = text
-        l.Font = Enum.Font.GothamBold
-        l.TextColor3 = Colors.Text
-        l.BackgroundTransparency = 1
-        l.Size = UDim2.new(0.6, 0, 1, 0)
-        l.Position = UDim2.new(0, 12, 0, 0)
-        l.TextXAlignment = Enum.TextXAlignment.Left
-        l.TextSize = 13
-        
-        -- Modern Switch
-        local switchBase = Instance.new("Frame", f)
-        switchBase.Size = UDim2.new(0, 40, 0, 20)
-        switchBase.Position = UDim2.new(1, -50, 0.5, -10)
-        switchBase.BackgroundColor3 = Color3.fromRGB(50,50,55)
-        AddCorner(switchBase, 20)
-        
-        local switchCircle = Instance.new("Frame", switchBase)
-        switchCircle.Size = UDim2.new(0, 16, 0, 16)
-        switchCircle.Position = UDim2.new(0, 2, 0.5, -8)
-        switchCircle.BackgroundColor3 = Colors.Text
-        AddCorner(switchCircle, 20)
-        
-        local btn = Instance.new("TextButton", f)
-        btn.Size = UDim2.new(1,0,1,0)
-        btn.BackgroundTransparency = 1
-        btn.Text = ""
-        
+        local f, l = AddComp(parent, text)
+        local sw = Create("Frame", f, {Size=UDim2.new(0,44,0,22), Position=UDim2.new(1,-60,0.5,-11), BackgroundColor3=Color3.fromRGB(45,48,54)})
+        AddCorner(sw, 20); local kn = Create("Frame", sw, {Size=UDim2.new(0,18,0,18), Position=UDim2.new(0,2,0.5,-9), BackgroundColor3=Colors.Text})
+        AddCorner(kn, 20); local btn = Create("TextButton", f, {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, Text=""})
         local state = default
-        local function Update()
-            local targetColor = state and (config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent) or Color3.fromRGB(50,50,55)
-            Tween(switchBase, {BackgroundColor3 = targetColor}, 0.2)
-            Tween(switchCircle, {Position = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)}, 0.2)
+        local function Upd()
+            local c = config.theme=="Rainbow" and rainbowColor or CurrentTheme.Accent
+            Tween(sw, {BackgroundColor3 = state and c or Color3.fromRGB(45,48,54)})
+            Tween(kn, {Position = state and UDim2.new(1,-20,0.5,-9) or UDim2.new(0,2,0.5,-9)})
+            Tween(kn, {BackgroundColor3 = state and Color3.new(1,1,1) or Color3.fromRGB(100,100,100)})
         end
-        
-        local function Toggle(v)
-            if v ~= nil then state = v else state = not state end
-            Update()
-            UpdateHUD(text, state) -- Update Array List
-             -- Play Sound
-            local s = Instance.new("Sound", game:GetService("SoundService")); s.SoundId = state and "rbxassetid://4612375233" or "rbxassetid://4612377140"; s.Volume = 0.5; s:Play(); s.Ended:Connect(function() s:Destroy() end)
-            task.spawn(function() callback(state) end)
+        RegisterTheme(sw, "BackgroundColor3") -- Register for dynamic updates
+        local function Tog(v)
+            state = v~=nil and v or not state; Upd(); UpdateHUD(text, state)
+            local s = Create("Sound", game:GetService("SoundService"), {SoundId = state and "rbxassetid://4612375233" or "rbxassetid://4612377140", Volume=0.5}); s:Play(); s.Ended:Connect(function() s:Destroy() end)
+            task.spawn(callback, state)
         end
-        if default then UpdateHUD(text, true) end
-        Update() -- Init
-        
-        btn.MouseButton1Click:Connect(function() Toggle() end)
-
+        if default then UpdateHUD(text, true) end Upd()
+        btn.MouseButton1Click:Connect(Tog)
         if id then
-            -- Right Click to bind? Or Middle Click? Keeping Middle Click for consistency
-            btn.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton3 then
-                    l.Text = text .. " ..."
-                    l.TextColor3 = Color3.fromRGB(255, 200, 0)
-                    local c; c = Connect(UserInputService.InputBegan, function(k)
-                        if k.UserInputType == Enum.UserInputType.Keyboard then
-                            config.binds[id] = k.KeyCode
-                            l.Text = text .. " ["..k.KeyCode.Name.."]"
-                            l.TextColor3 = Colors.Text
-                            c:Disconnect()
-                            if RefreshKeyList then RefreshKeyList() end
-                        end
-                    end)
-                end
-            end)
-            
-             -- Safe Bind Check
-             -- Safe Bind Check
-            Connect(UserInputService.InputBegan, function(io, g)
-                if not g and config.binds and config.binds[id] and io.KeyCode == config.binds[id] then
-                     Toggle()
-                end
-            end)
+            btn.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton3 then
+                l.Text=text.." ..."; l.TextColor3=Colors.Accent
+                local c; c=Connect(UIS.InputBegan, function(k) if k.UserInputType==Enum.UserInputType.Keyboard then config.binds[id]=k.KeyCode; l.Text=text.." ["..k.KeyCode.Name.."]"; l.TextColor3=Colors.Text; c:Disconnect(); if RefreshKeyList then RefreshKeyList() end end end)
+            end end)
+            Connect(UIS.InputBegan, function(io,g) if not g and config.binds[id] and io.KeyCode==config.binds[id] then Tog() end end)
         end
     end
-    
+
     local function AddSlider(parent, text, min, max, default, callback)
-        local f = Instance.new("Frame", parent)
-        f.Size = UDim2.new(1, -6, 0, 50)
-        f.BackgroundColor3 = Colors.Item
-        AddCorner(f, 6)
-        UpdateLayout(parent, f)
-        
-        local l = Instance.new("TextLabel", f)
-        l.Text = text
-        l.Font = Enum.Font.GothamBold
-        l.TextColor3 = Colors.Text
-        l.BackgroundTransparency = 1
-        l.Position = UDim2.new(0, 12, 0, 10)
-        l.TextXAlignment = Enum.TextXAlignment.Left
-        l.TextSize = 13
-        
-        local vLabel = Instance.new("TextLabel", f)
-        vLabel.Text = tostring(default)
-        vLabel.Font = Enum.Font.GothamBold
-        vLabel.TextColor3 = Colors.Text
-        vLabel.BackgroundTransparency = 1
-        vLabel.Position = UDim2.new(1, -40, 0, 10)
-        vLabel.TextXAlignment = Enum.TextXAlignment.Right
-        vLabel.TextSize = 13
-        
-        local slideBar = Instance.new("Frame", f)
-        slideBar.Size = UDim2.new(1, -24, 0, 6)
-        slideBar.Position = UDim2.new(0, 12, 0, 32)
-        slideBar.BackgroundColor3 = Color3.fromRGB(50,50,55)
-        AddCorner(slideBar, 4)
-        
-        local fill = Instance.new("Frame", slideBar)
-        fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0)
-        fill.BackgroundColor3 = (config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent)
-        AddCorner(fill, 4)
-        
-        local knob = Instance.new("Frame", fill) -- Drag Head
-        knob.Size = UDim2.new(0, 12, 0, 12)
-        knob.Position = UDim2.new(1, -6, 0.5, -6)
-        knob.BackgroundColor3 = Color3.new(1,1,1)
-        AddCorner(knob, 10)
-        
-        local btn = Instance.new("TextButton", f)
-        btn.Size = UDim2.new(1,0,1,0)
-        btn.BackgroundTransparency = 1
-        btn.Text = ""
-        
-        local dragging = false
-        local function Update(input)
-            local p = math.clamp((input.Position.X - slideBar.AbsolutePosition.X) / slideBar.AbsoluteSize.X, 0, 1)
-            local value = math.floor(min + ((max - min) * p))
-            Tween(fill, {Size = UDim2.new(p, 0, 1, 0)}, 0.1)
-            vLabel.Text = tostring(value)
-            callback(value)
+        local f, l = AddComp(parent, text, 60); l.Position=UDim2.new(0,15,0,12); l.Size=UDim2.new(0.5,0,0,20); l.TextSize=13
+        local vl = Create("TextLabel", f, {Text=tostring(default), Font="GothamBold", TextColor3=Colors.Accent, Position=UDim2.new(1,-55,0,12), Size=UDim2.new(0,40,0,20), TextXAlignment="Right", TextSize=13, BackgroundTransparency=1})
+        local sb = Create("Frame", f, {Size=UDim2.new(1,-30,0,4), Position=UDim2.new(0,15,0,42), BackgroundColor3=Color3.fromRGB(45,48,54)})
+        AddCorner(sb,4); local fl = Create("Frame", sb, {Size=UDim2.new((default-min)/(max-min),0,1,0), BackgroundColor3=Colors.Accent})
+        AddCorner(fl,4); local kn = Create("Frame", fl, {Size=UDim2.new(0,12,0,12), Position=UDim2.new(1,-6,0.5,-6), BackgroundColor3=Colors.Text})
+        AddCorner(kn,10); local btn = Create("TextButton", f, {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, Text=""})
+        local function Upd(i)
+            local p = math.clamp((i.Position.X-sb.AbsolutePosition.X)/sb.AbsoluteSize.X, 0, 1)
+            local v = math.floor(min+((max-min)*p)); Tween(fl,{Size=UDim2.new(p,0,1,0)},.1); vl.Text=tostring(v); callback(v)
         end
-        
-        btn.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; Update(i) end end)
-        Connect(UserInputService.InputEnded, function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
-        Connect(UserInputService.InputChanged, function(i) if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then Update(i) end end)
+        RegisterTheme(fl, "BackgroundColor3"); RegisterTheme(vl, "TextColor3")
+        local drag = false; btn.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=true Upd(i) end end)
+        Connect(UIS.InputChanged, function(i) if drag and i.UserInputType==Enum.UserInputType.MouseMovement then Upd(i) end end)
+        Connect(UIS.InputEnded, function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=false end end)
     end
 
     local function AddDropdown(parent, text, options, callback)
-        local f = Instance.new("Frame", parent)
-        f.Size = UDim2.new(1, -6, 0, 40)
-        f.BackgroundColor3 = Colors.Item
-        AddCorner(f, 6)
-        UpdateLayout(parent, f)
-        
-        local l = Instance.new("TextLabel", f)
-        l.Text = text
-        l.Font = Enum.Font.GothamBold
-        l.TextColor3 = Colors.Text
-        l.BackgroundTransparency = 1
-        l.Size = UDim2.new(0.5, 0, 1, 0)
-        l.Position = UDim2.new(0, 12, 0, 0)
-        l.TextXAlignment = Enum.TextXAlignment.Left
-        l.TextSize = 13
-        
-        local btn = Instance.new("TextButton", f)
-        btn.Size = UDim2.new(0, 120, 0, 26)
-        btn.Position = UDim2.new(1, -130, 0.17, 0)
-        btn.Text = options[1]
-        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-        btn.TextColor3 = Colors.Text
-        btn.Font = Enum.Font.GothamBold
-        btn.TextSize = 12
-        AddCorner(btn, 4)
-        
-        local idx = 1
-        btn.MouseButton1Click:Connect(function() 
-            idx = idx + 1 
-            if idx > #options then idx = 1 end 
-            btn.Text = options[idx] 
-            callback(options[idx]) 
-        end)
+        local f, l = AddComp(parent, text)
+        local btn = Create("TextButton", f, {Size=UDim2.new(0,130,0,28), Position=UDim2.new(1,-145,0.5,-14), Text=options[1], BackgroundColor3=Color3.fromRGB(45,48,54), TextColor3=Colors.Text, Font="GothamBold", TextSize=12})
+        AddCorner(btn,6); local s = AddStroke(btn, Colors.Accent,1,0.7); RegisterTheme(s, "Color"); local idx=1
+        btn.MouseButton1Click:Connect(function() idx=idx<#options and idx+1 or 1; btn.Text=options[idx]; callback(options[idx]) end)
     end
 
-    local function AddBind(parent, text, id)
-       AddToggle(parent, text, false, function(s) end, id)
+    local function AddButton(parent, text, callback)
+        local f, btn = AddComp(parent, ""); btn:Destroy()
+        btn = Create("TextButton", f, {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, Text=text, Font="GothamBold", TextColor3=Colors.Text, TextSize=14})
+        btn.MouseEnter:Connect(function() Tween(f,{BackgroundColor3=Colors.Hover}) end)
+        btn.MouseLeave:Connect(function() Tween(f,{BackgroundColor3=Colors.Item}) end)
+        btn.MouseButton1Click:Connect(callback)
     end
+
+    local function AddBind(p, t, i) AddToggle(p, t, false, function() end, i) end
 
     -- // ULTIMATE UNIVERSAL SCANNER (HYBRID) //
     local TargetCache = {} -- Used for NPCs/Entities in "All" mode
@@ -733,9 +356,9 @@ local function LoadGalaxy()
     end
     
     -- Track new and existing players
-    Connect(Players.PlayerAdded, AddPlayer)
+    Connect(Players.PlayerAdded, function(p) if p ~= LP then AddPlayer(p) end end)
     for _, p in pairs(Players:GetPlayers()) do 
-        if p ~= LocalPlayer then AddPlayer(p) end 
+        if p ~= LP then AddPlayer(p) end 
     end
     Connect(Players.PlayerRemoving, function(p) PlayerCache[p] = nil end)
 
@@ -747,7 +370,7 @@ local function LoadGalaxy()
                 if v:IsA("Humanoid") and v.Parent and v.Health > 0 then
                     local char = v.Parent
                     -- Exclude real players from this list to avoid double counting
-                    if not Players:GetPlayerFromCharacter(char) and char ~= LocalPlayer.Character then
+                    if not Players:GetPlayerFromCharacter(char) and char ~= LP.Character then
                         table.insert(list, char)
                     end
                 end
@@ -778,19 +401,53 @@ local function LoadGalaxy()
     end
 
     -- // CORE COMBAT //
-    local aimEnabled, triggerEnabled, triggerHolding = false, false, false
     local function getBestPart(char) return char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso") end
-    local function isVisible(part) if not config.wallCheck then return true end; local r = workspace:Raycast(Camera.CFrame.Position, part.Position - Camera.CFrame.Position, RaycastParams.new()); return not r or r.Instance:IsDescendantOf(part.Parent) end
+    local function isVisible(part) 
+        if not config.wallCheck then return true end
+        local p = RaycastParams.new()
+        p.FilterDescendantsInstances = {LP.Character, Camera, ScreenGui}
+        p.FilterType = Enum.RaycastFilterType.Exclude
+        local r = workspace:Raycast(Camera.CFrame.Position, part.Position - Camera.CFrame.Position, p)
+        return not r or r.Instance:IsDescendantOf(part.Parent)
+    end
 
-    Connect(RunService.RenderStepped, function()
-        if config.bhop then
-             if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") and LocalPlayer.Character.Humanoid.MoveDirection.Magnitude > 0 then
-                 if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-                     if LocalPlayer.Character.Humanoid.FloorMaterial ~= Enum.Material.Air then
-                         LocalPlayer.Character.Humanoid.Jump = true
-                     end
-                 end
-             end
+    Connect(RS.RenderStepped, function()
+        local char = LP.Character; if not char or not char:FindFirstChild("Humanoid") then return end
+        local hum = char.Humanoid
+        if config.walkSpeed > 16 then hum.WalkSpeed = config.walkSpeed end
+        if config.jumpPower > 50 then hum.JumpPower = config.jumpPower end
+        if config.bhop and hum.MoveDirection.Magnitude > 0 and UIS:IsKeyDown(Enum.KeyCode.Space) then if hum.FloorMaterial ~= Enum.Material.Air then hum.Jump = true; local r = char:FindFirstChild("HumanoidRootPart"); if r then r.Velocity += hum.MoveDirection * 5 end end end
+        if config.noclip then for _,v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end end
+        if config.antiAim then local r = char:FindFirstChild("HumanoidRootPart"); if r then r.CFrame *= CFrame.Angles(0, math.rad(100), 0) * CFrame.Angles(math.rad(math.random(-20,20)), 0, 0) end end
+        if config.infAmmo then for _,v in pairs(char:GetDescendants()) do if v:IsA("IntValue") or v:IsA("NumberValue") then local n = v.Name:lower(); if n=="ammo" or n=="clip" or n=="mag" then v.Value = 999 end end end end
+        
+        -- ESP & CHAMS SYNC
+        for _,c in pairs(GetTargets()) do
+            if c and c.Parent and c:FindFirstChild("HumanoidRootPart") and c:FindFirstChild("Humanoid") and c.Humanoid.Health>0 then
+                -- Chams (Highlights)
+                if config.chams then
+                    local h = c:FindFirstChild("G_Chams") or Create("Highlight", c, {Name="G_Chams", FillColor=Color3.new(1,0,0), FillTransparency=0.5, OutlineColor=Color3.new(1,1,1), OutlineTransparency=0, DepthMode=Enum.HighlightDepthMode.AlwaysOnTop})
+                    h.Enabled = true; h.FillColor = config.theme=="Rainbow" and rainbowColor or Color3.new(1,0,0)
+                elseif c:FindFirstChild("G_Chams") then c.G_Chams:Destroy() end
+                
+                -- Boxes
+                if config.boxEsp then
+                    local b = c:FindFirstChild("G_Box") or Create("BillboardGui", c, {Name="G_Box", Size=UDim2.new(4,0,5.5,0), AlwaysOnTop=true})
+                    local f = b:FindFirstChild("Frame") or Create("Frame", b, {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1})
+                    local s = f:FindFirstChild("Inline") or Create("UIStroke", f, {Name="Inline", Thickness=1, Color=config.theme=="Rainbow" and rainbowColor or CurrentTheme.Accent})
+                    s.Color = config.theme=="Rainbow" and rainbowColor or CurrentTheme.Accent
+                else if c:FindFirstChild("G_Box") then c.G_Box:Destroy() end end
+                
+                -- Tracers
+                if config.tracers and char:FindFirstChild("HumanoidRootPart") and char.HumanoidRootPart:FindFirstChild("G_Att_L") then
+                    local b = c:FindFirstChild("G_Beam") or Create("Beam", c, {Name="G_Beam", Attachment0=char.HumanoidRootPart.G_Att_L, Attachment1=c.HumanoidRootPart:FindFirstChild("G_Att") or Create("Attachment", c.HumanoidRootPart, {Name="G_Att"}), FaceCamera=true, Width0=0.2, Width1=0.2})
+                    b.Color = ColorSequence.new(config.theme=="Rainbow" and rainbowColor or CurrentTheme.Accent)
+                else if c:FindFirstChild("G_Beam") then c.G_Beam:Destroy() end end
+            else
+                if c:FindFirstChild("G_Box") then c.G_Box:Destroy() end
+                if c:FindFirstChild("G_Beam") then c.G_Beam:Destroy() end
+                if c:FindFirstChild("G_Chams") then c.G_Chams:Destroy() end
+            end
         end
 
         if aimEnabled then
@@ -800,9 +457,7 @@ local function LoadGalaxy()
             local targets = GetTargets()
             
             for _, char in pairs(targets) do
-                -- char is already the Character
-
-                if char and char:FindFirstChildOfClass("Humanoid") and char:FindFirstChildOfClass("Humanoid").Health > 0 then
+                if char and char.Parent and char ~= LP.Character and char:FindFirstChildOfClass("Humanoid") and char:FindFirstChildOfClass("Humanoid").Health > 0 then
                     local part = getBestPart(char)
                     if part then
                         local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
@@ -815,11 +470,13 @@ local function LoadGalaxy()
             end
             if best then
                 local part = getBestPart(best); local pos = part.Position
-                if config.usePrediction and best:FindFirstChild("HumanoidRootPart") then pos = pos + (best.HumanoidRootPart.Velocity * config.predictionFactor) end
+                if config.usePrediction and best:FindFirstChild("HumanoidRootPart") then 
+                    pos = pos + (best.HumanoidRootPart.Velocity * config.predictionFactor) 
+                end
                 
-                local targetCF = CFrame.new(Camera.CFrame.Position, pos)
+                local targetCF = CFrame.lookAt(Camera.CFrame.Position, pos)
                 if config.aimSmoothing > 1 then
-                    Camera.CFrame = Camera.CFrame:Lerp(targetCF, 1 / config.aimSmoothing)
+                    Camera.CFrame = Camera.CFrame:Lerp(targetCF, 0.25 / config.aimSmoothing) -- Faster Lerp base
                 else
                     Camera.CFrame = targetCF
                 end
@@ -828,7 +485,7 @@ local function LoadGalaxy()
 
         -- TRIGGERBOT 3.0 (RAPID FIRE)
         if triggerEnabled then
-            local p = RaycastParams.new(); p.FilterDescendantsInstances = {LocalPlayer.Character, Camera, ScreenGui}; p.FilterType = Enum.RaycastFilterType.Exclude
+            local p = RaycastParams.new(); p.FilterDescendantsInstances = {LP.Character, Camera, ScreenGui}; p.FilterType = Enum.RaycastFilterType.Exclude
             -- Reduced radius to 1.5 for "Crosshair" feeling (Precise but forgiving)
             local s, h = pcall(function() return workspace:Spherecast(Camera.CFrame.Position, 1.5, Camera.CFrame.LookVector * 1000, p) end)
             
@@ -836,20 +493,32 @@ local function LoadGalaxy()
             local isEnemy = false
             if s and h and h.Instance then
                 local m = h.Instance:FindFirstAncestorOfClass("Model") or h.Instance.Parent
-                if m and m:FindFirstChildOfClass("Humanoid") and m ~= LocalPlayer.Character then isEnemy = true end
+                if m and m:FindFirstChildOfClass("Humanoid") and m ~= LP.Character then isEnemy = true end
             end
             
             if isEnemy then
                  -- RAPID FIRE LOGIC (Supports Semi-Auto & Auto)
-                 if VirtualInputManager then
-                    VirtualInputManager:SendMouseButtonEvent(0,0,0,true,game,0)
-                    VirtualInputManager:SendMouseButtonEvent(0,0,0,false,game,0)
+                 if VIM then
+                    VIM:SendMouseButtonEvent(0,0,0,true,game,0)
+                    VIM:SendMouseButtonEvent(0,0,0,false,game,0)
                  elseif mouse1click then
                     mouse1click()
                  elseif mouse1press then
                     mouse1press(); mouse1release()
                  end
             end
+        end
+
+        -- China Hat Logic
+        if config.chinaHat and char:FindFirstChild("Head") then
+            local hat = char.Head:FindFirstChild("G_ChinaHat") or Create("ConeHandleAdornment", char.Head, {
+                Name = "G_ChinaHat", Adornee = char.Head, Height = 0.6, Radius = 1.0, 
+                Transparency = 0.4, AlwaysOnTop = true, ZIndex = 10,
+                CFrame = CFrame.new(0, 0.4, 0) * CFrame.Angles(math.rad(90), 0, 0)
+            })
+            hat.Color3 = config.theme=="Rainbow" and rainbowColor or CurrentTheme.Accent
+        elseif char:FindFirstChild("Head") and char.Head:FindFirstChild("G_ChinaHat") then
+            char.Head.G_ChinaHat:Destroy()
         end
     end)
 
@@ -860,324 +529,81 @@ local function LoadGalaxy()
         if char:FindFirstChild("G_Box") then char.G_Box:Destroy() end
         if char:FindFirstChild("G_Beam") then char.G_Beam:Destroy() end
         if char:FindFirstChild("G_Att") then char.G_Att:Destroy() end
+        if char:FindFirstChild("G_Chams") then char.G_Chams:Destroy() end
+        if char:FindFirstChild("Head") and char.Head:FindFirstChild("G_ChinaHat") then char.Head.G_ChinaHat:Destroy() end
     end
-
-    Connect(RunService.Heartbeat, function()
-        -- Ensure Local Attachment Exists
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            if not LocalPlayer.Character.HumanoidRootPart:FindFirstChild("G_Att_Local") then
-                local a = Instance.new("Attachment", LocalPlayer.Character.HumanoidRootPart); a.Name = "G_Att_Local"
-            end
-        end
-
-        local targets = GetTargets()
-        for _, char in pairs(targets) do
-            if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChildOfClass("Humanoid").Health > 0 then
-                local hrp = char.HumanoidRootPart
-                
-                -- [[ BOX ESP (Styled) ]]
-                if config.boxEsp then
-                    if not char:FindFirstChild("G_Box") then
-                        local bb = Instance.new("BillboardGui", char); bb.Name = "G_Box"; bb.Size = UDim2.new(4,0,5.5,0); bb.AlwaysOnTop = true; bb.StudsOffset = Vector3.new(0,0,0)
-                        local f = Instance.new("Frame", bb); f.Size = UDim2.new(1,0,1,0); f.BackgroundTransparency = 1
-                        -- Black Outline (Background)
-                        local s1 = Instance.new("UIStroke", f); s1.Name = "Outline"; s1.Thickness = 2.5; s1.Color = Color3.new(0,0,0); s1.Transparency = 0
-                        -- Colored Inline (Foreground)
-                        local s2 = Instance.new("UIStroke", f); s2.Name = "Inline"; s2.Thickness = 1; s2.Color = rainbowColor; s2.Transparency = 0
-                    end
-                    local box = char.G_Box.Frame
-                    box.Inline.Color = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
-                else
-                    if char:FindFirstChild("G_Box") then char.G_Box:Destroy() end
-                end
-
-                -- [[ TRACERS (Beams) ]]
-                if config.tracers and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart:FindFirstChild("G_Att_Local") then
-                    if not char:FindFirstChild("G_Beam") then
-                        -- Create Attachment on Target
-                        local att = Instance.new("Attachment", hrp); att.Name = "G_Att"
-                        -- Create Beam
-                        local b = Instance.new("Beam", char); b.Name = "G_Beam"
-                        b.Attachment0 = LocalPlayer.Character.HumanoidRootPart.G_Att_Local
-                        b.Attachment1 = att
-                        b.FaceCamera = true; b.Width0 = 0.2; b.Width1 = 0.2
-                        b.Color = ColorSequence.new(rainbowColor)
-                    end
-                    local beam = char.G_Beam
-                    beam.Color = ColorSequence.new(config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent)
-                 else
-                    ClearVisuals(char) -- Cleanup logic handled here mostly
-                 end
-            else
-                ClearVisuals(char)
-            end
-        end
-        
-        -- Cleanup Orphans
-        for _, c in pairs(ScreenGui:GetChildren()) do if c.Name:sub(1,2) == "T_" then c:Destroy() end end -- Remove old 2D tracers
-    end)
-    
-    -- PHYSICS LOOP (Speed, Jump, NoClip, BHop)
-    Connect(RunService.RenderStepped, function()
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-             local char = LocalPlayer.Character
-             local hum = char.Humanoid
-             
-             -- Speed BHop
-             if config.bhop and hum.MoveDirection.Magnitude > 0 then
-                 if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-                     if hum.FloorMaterial ~= Enum.Material.Air then
-                         hum.Jump = true
-                         -- Speed Boost
-                         local root = char:FindFirstChild("HumanoidRootPart")
-                         if root then
-                             root.Velocity = root.Velocity + (hum.MoveDirection * 5) -- Boost
-                         end
-                     end
-                 end
-             end
-        end
-    end)
-
-    Connect(RunService.Stepped, function()
-        if LocalPlayer.Character then
-             local char = LocalPlayer.Character
-             if char:FindFirstChild("Humanoid") then
-                if config.walkSpeed > 16 then char.Humanoid.WalkSpeed = config.walkSpeed end
-                if config.jumpPower > 50 then char.Humanoid.JumpPower = config.jumpPower end
-             end
-             if config.noclip then
-                for _, v in pairs(char:GetDescendants()) do
-                    if v:IsA("BasePart") then v.CanCollide = false end
-                end
-             end
-             if config.antiAim then
-                 local root = char:FindFirstChild("HumanoidRootPart")
-                 if root then
-                     root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(100), 0) * CFrame.Angles(math.rad(math.random(-20,20)), 0, 0)
-                 end
-             end
-             if config.infAmmo then
-                 for _, v in pairs(char:GetDescendants()) do
-                     if (v:IsA("IntValue") or v:IsA("NumberValue")) then
-                         local n = v.Name:lower()
-                         if n == "ammo" or n == "clip" or n == "mag" or n == "stored" or n == "reserve" then v.Value = 999 end
-                     end
-                 end
-             end
-             -- No Logic for Seat Method needed in Stepped (it relies on Welds and Destruction)
-        end
-    end)
 
     -- // BINDING // 
     AddToggle(TabCombat, "Aimbot", false, function(s) aimEnabled = s end, "aim")
     AddToggle(TabCombat, "TriggerBot", false, function(s) triggerEnabled = s end, "trig")
     AddToggle(TabCombat, "Knife Aura", false, function(s) config.knifeBot = s end, "knife")
     AddSlider(TabCombat, "Knife Range", 5, 30, 15, function(v) config.knifeRange = v end)
-    
-    AddToggle(TabCombat, "No Recoil", false, function(s) config.noRecoil = s end) -- Defuse Division / Universal
+    AddToggle(TabCombat, "No Recoil", false, function(s) config.noRecoil = s end)
     AddSlider(TabCombat, "Smoothing", 1, 10, 1, function(v) config.aimSmoothing = v end)
-
-    AddToggle(TabCombat, "Inf Ammo (Univ)", false, function(s) config.infAmmo = s end, "ammo")
-    AddToggle(TabCombat, "Wall Check", true, function(s) config.wallCheck = s end, "wall")
+    AddToggle(TabCombat, "Inf Ammo", false, function(s) config.infAmmo = s end, "ammo")
+    AddToggle(TabCombat, "Wall Check", config.wallCheck, function(s) config.wallCheck = s end)
     
     AddToggle(TabVisuals, "ESP", false, function(s) espEnabled = s end, "esp")
-    AddToggle(TabVisuals, "Show FOV", true, function(s) config.showFov = s end, "fov")
-    AddToggle(TabVisuals, "Tracers (Beam)", false, function(s) config.tracers = s end, "trace")
-    AddToggle(TabVisuals, "Box ESP (Style)", false, function(s) config.boxEsp = s end, "box")
+    AddToggle(TabVisuals, "Chams", false, function(s) config.chams = s end)
+    AddToggle(TabVisuals, "China Hat", false, function(s) config.chinaHat = s end)
+    AddToggle(TabVisuals, "Show FOV", config.showFov, function(s) config.showFov = s end)
+    AddToggle(TabVisuals, "Tracers", false, function(s) config.tracers = s end)
+    AddToggle(TabVisuals, "Box ESP", false, function(s) config.boxEsp = s end)
     AddDropdown(TabVisuals, "Scan Mode", {"All", "Players"}, function(v) config.espMode = v end)
 
     AddToggle(TabMisc, "NoClip", false, function(s) config.noclip = s end, "noclip")
-    AddToggle(TabMisc, "FE Invisibility (Seat)", false, function(s)
+    AddToggle(TabMisc, "FE Invisibility", false, function(s)
         config.invisibility = s
-        if s then
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local root = char.HumanoidRootPart
-                local savedPos = root.CFrame
-                
-                -- Teleport to safety
-                char:MoveTo(seatTeleportPosition)
-                task.wait(0.1)
-                
-                if root.Position.Y < voidLevelYThreshold then
-                    char:MoveTo(savedPos.p)
-                    return
-                end
-                
-                currentSeat = Instance.new("Seat")
-                currentSeat.Name = "invischair"
-                currentSeat.Parent = workspace
-                currentSeat.Transparency = 1
-                currentSeat.CanCollide = false
-                currentSeat.Position = seatTeleportPosition
-                
-                local weld = Instance.new("Weld", currentSeat)
-                local torso = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
-                if torso then
-                    weld.Part0 = currentSeat
-                    weld.Part1 = torso
-                    task.wait()
-                    currentSeat.CFrame = savedPos
-                else
-                    currentSeat:Destroy()
-                end
-            end
-        else
-            if currentSeat then
-                currentSeat:Destroy()
-                currentSeat = nil
-            end
-        end
+        if s and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+            local r = LP.Character.HumanoidRootPart; local p = r.CFrame; LP.Character:MoveTo(seatTeleportPosition); task.wait(0.1)
+            currentSeat = Create("Seat", workspace, {Name="invischair", Transparency=1, CanCollide=false, Position=seatTeleportPosition})
+            local w = Create("Weld", currentSeat, {Part0=currentSeat, Part1=LP.Character:FindFirstChild("Torso") or LP.Character:FindFirstChild("UpperTorso")}); task.wait(); currentSeat.CFrame = p
+        elseif currentSeat then currentSeat:Destroy(); currentSeat = nil end
     end, "invis")
-    AddToggle(TabMisc, "Rage Anti-Aim", false, function(s) config.antiAim = s end, "aa") -- SPINBOT
+    AddToggle(TabMisc, "Rage AA", false, function(s) config.antiAim = s end, "aa")
     AddToggle(TabMisc, "Speed BHop", false, function(s) config.bhop = s end, "bhop")
     AddSlider(TabMisc, "Speed", 16, 200, 16, function(v) config.walkSpeed = v end)
-    
-    -- // KEYBIND HUD UI //
-    local KeyList = Instance.new("Frame", ScreenGui); KeyList.Position = UDim2.new(0, 20, 0.4, 0); KeyList.Size = UDim2.new(0, 180, 0, 250); KeyList.BackgroundColor3 = Color3.fromRGB(20,20,25); KeyList.BackgroundTransparency = 0.2; KeyList.Active = true; KeyList.Draggable = true
-    Instance.new("UICorner", KeyList).CornerRadius = UDim.new(0, 8)
-    local KeyTitle = Instance.new("TextLabel", KeyList); KeyTitle.Name = "Title"; KeyTitle.Text = "  Active Keybinds"; KeyTitle.Font = Enum.Font.GothamBlack; KeyTitle.TextColor3 = Color3.new(1,1,1); KeyTitle.Size = UDim2.new(1,0,0,30); KeyTitle.BackgroundTransparency = 1; KeyTitle.TextXAlignment = Enum.TextXAlignment.Left; KeyTitle.TextSize=14
-    local KeyLayout = Instance.new("UIListLayout", KeyList); KeyLayout.SortOrder = Enum.SortOrder.LayoutOrder; KeyLayout.Padding = UDim.new(0,0); KeyLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    -- Padding for list
-    local KeyPad = Instance.new("UIPadding", KeyList); KeyPad.PaddingTop = UDim.new(0, 35); KeyPad.PaddingLeft = UDim.new(0,10)
-    KeyList.Visible = config.keybindList
-    
-    -- // SEARCH UI // (Skipped for brevity/redundancy in this diff, assuming untouched logic below)
-    -- (Previous code was here, ensuring variables are local)
-
-    -- // KEYBIND HUD REFRESHER //
-    -- Forward Declared at top of LoadGalaxy scope ideally, but we assign here.
-    -- RefreshKeyList was defined as 'local function', meaning earlier closures (AddBind) might miss it if not careful.
-    -- We will make it global to this scope or ensure it's captured. 
-    -- Better: Assign to a pre-defined local if possible, or just rely on 'RefreshKeyList' being visible here.
-    -- For now, we keep it here but ensure the initial call is safe.
-    
-    local function AddKeybind_Dummy() end -- Placeholder
-    
-    RefreshKeyList = function()
-        if not KeyList then return end
-        -- Clear old labels (KEEP TITLE)
-        for _, c in pairs(KeyList:GetChildren()) do
-            if c:IsA("TextLabel") and c.Name ~= "Title" then c:Destroy() end
-        end
-        
-        -- Helper to add entry
-        local function AddListEntry(name, key)
-            if not key or typeof(key) ~= "EnumItem" then return end
-            local t = Instance.new("TextLabel", KeyList)
-            t.Name = name
-            t.Size = UDim2.new(1, -10, 0, 24)
-            t.BackgroundTransparency = 1
-            t.Text = name .. " [" .. key.Name .. "]"
-            t.Font = Enum.Font.GothamBold
-            t.TextSize = 16
-            t.TextColor3 = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
-            t.TextXAlignment = Enum.TextXAlignment.Left
-        end
-        
-        -- Static Binds checks
-        if config.menuKey then AddListEntry("Menu", config.menuKey) end
-        if config.aimKey then AddListEntry("Aimbot", config.aimKey) end
-        if config.triggerKey then AddListEntry("Trigger", config.triggerKey) end
-        
-        -- Dynamic Binds
-        if config.binds then
-            for id, k in pairs(config.binds) do
-                local names = {
-                    esp="ESP", fly="Fly", noclip="NoClip", tp="3rd Person", 
-                    aa="Anti-Aim", trace="Tracers", bhop="BunnyHop", knife="KnifeBot"
-                }
-                AddListEntry(names[id] or id, k)
-            end
-        end
-    end
-    
-    -- Expose to shared scope if needed (Hack for AddBind to see it if it wasn't valid)
-    -- Actually, since AddBind calls it inside a callback, it resolves the upvalue at RUNTIME. 
-    -- As long as RefreshKeyList is defined in the same scope 'LoadGalaxy' before the callback fires, it works.
-    -- Initial Call:
-    task.spawn(function() pcall(RefreshKeyList) end)
-    
-    -- Hook into Theme Update
-    Connect(RunService.RenderStepped, function()
-        if KeyList.Visible and config.theme == "Rainbow" then
-             for _, c in pairs(KeyList:GetChildren()) do
-                 if c:IsA("TextLabel") then c.TextColor3 = rainbowColor end
-             end
-        end
-    end)
-
-    AddToggle(TabSettings, "Show Keybind List", true, function(s) KeyList.Visible = s end)
     AddSlider(TabMisc, "Jump", 50, 300, 50, function(v) config.jumpPower = v end)
     
     -- CUSTOM THIRD PERSON (ShiftLock Style)
     local CamRot = Vector2.new(0,0)
     AddToggle(TabMisc, "Third Person", false, function(s) 
         config.thirdPerson = s 
-        if s then
-            RunService:BindToRenderStep("GalaxyTP", Enum.RenderPriority.Camera.Value + 1, function()
-                -- v8.2: Menu Priority
-                if MainFrame.Visible then
-                    UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-                    return
-                end
-                
-                UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-                local mouseDelta = UserInputService:GetMouseDelta()
-                CamRot = CamRot - mouseDelta * 0.005 -- Sens
-                -- Clamp Pitch
-                CamRot = Vector2.new(CamRot.X, math.clamp(CamRot.Y, math.rad(-80), math.rad(80)))
-                
-                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
-                   local head = LocalPlayer.Character.Head
-                   -- Calculate CFrame
-                   local rotCFrame = CFrame.Angles(0, CamRot.X, 0) * CFrame.Angles(CamRot.Y, 0, 0)
-                   local finalCFrame = CFrame.new(head.Position) * rotCFrame * CFrame.new(2, 2, config.thirdPersonDist) -- Offset
-                   
-                   -- Raycast for collision (Auto-Zoom logic) can be added here, but user wants raw control.
-                   Camera.CFrame = finalCFrame
-                   Camera.Focus = CFrame.new(head.Position)
-                end
-            end)
-        else
-            RunService:UnbindFromRenderStep("GalaxyTP")
-            UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-            LocalPlayer.CameraMode = Enum.CameraMode.Custom -- Reset
-        end
+        if s then RS:BindToRenderStep("G_TP", 201, function() if MainFrame.Visible then UIS.MouseBehavior = "Default" return end UIS.MouseBehavior = "LockCenter" local d = UIS:GetMouseDelta(); CamRot -= d*0.005; CamRot = Vector2.new(CamRot.X, math.clamp(CamRot.Y, -1.4, 1.4)) if LP.Character and LP.Character:FindFirstChild("Head") then Camera.CFrame = CFrame.new(LP.Character.Head.Position) * CFrame.Angles(0, CamRot.X, 0) * CFrame.Angles(CamRot.Y, 0, 0) * CFrame.new(2, 2, config.thirdPersonDist) end end)
+        else RS:UnbindFromRenderStep("G_TP") UIS.MouseBehavior = "Default" end
     end, "tp")
     AddSlider(TabMisc, "TP Dist", 10, 50, 20, function(v) config.thirdPersonDist = v end)
     
     AddToggle(TabMisc, "Fly Mode [F]", false, function(s)
-        local root = LocalPlayer.Character.HumanoidRootPart
+        local root = LP.Character.HumanoidRootPart
         if s then
-            local bg = Instance.new("BodyGyro", root); bg.maxTorque = Vector3.new(inf,inf,inf); bg.P = 10000; bg.D = 1000; bg.Name = "FlyG"
-            local bv = Instance.new("BodyVelocity", root); bv.maxForce = Vector3.new(inf,inf,inf); bv.Name = "FlyV"
-            LocalPlayer.Character.Humanoid.PlatformStand = true
+            local bg = Instance.new("BodyGyro", root); bg.maxTorque = Vector3.new(math.huge,math.huge,math.huge); bg.P = 10000; bg.D = 1000; bg.Name = "FlyG"
+            local bv = Instance.new("BodyVelocity", root); bv.maxForce = Vector3.new(math.huge,math.huge,math.huge); bv.Name = "FlyV"
+            LP.Character.Humanoid.PlatformStand = true
             
             -- Main Fly Loop
-            local c; c = RunService.RenderStepped:Connect(function()
+            local c; c = RS.RenderStepped:Connect(function()
                  if not s or not root.Parent or not root:FindFirstChild("FlyV") then c:Disconnect(); return end
                  local speed = 65
-                 if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then speed = 120 end
+                 if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then speed = 120 end
                  
                  local d = Vector3.new()
-                 if UserInputService:IsKeyDown(Enum.KeyCode.W) then d = d + Camera.CFrame.LookVector end
-                 if UserInputService:IsKeyDown(Enum.KeyCode.S) then d = d - Camera.CFrame.LookVector end
-                 if UserInputService:IsKeyDown(Enum.KeyCode.A) then d = d - Camera.CFrame.RightVector end
-                 if UserInputService:IsKeyDown(Enum.KeyCode.D) then d = d + Camera.CFrame.RightVector end
+                 if UIS:IsKeyDown(Enum.KeyCode.W) then d = d + Camera.CFrame.LookVector end
+                 if UIS:IsKeyDown(Enum.KeyCode.S) then d = d - Camera.CFrame.LookVector end
+                 if UIS:IsKeyDown(Enum.KeyCode.A) then d = d - Camera.CFrame.RightVector end
+                 if UIS:IsKeyDown(Enum.KeyCode.D) then d = d + Camera.CFrame.RightVector end
                  
                  -- Vertical Logic
-                 if UserInputService:IsKeyDown(Enum.KeyCode.Space) then d = d + Vector3.new(0, 1, 0) end
-                 if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then d = d - Vector3.new(0, 1, 0) end
+                 if UIS:IsKeyDown(Enum.KeyCode.Space) then d = d + Vector3.new(0, 1, 0) end
+                 if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then d = d - Vector3.new(0, 1, 0) end
                  
                  bv.Velocity = d * speed
                  bg.CFrame = Camera.CFrame
             end)
             table.insert(Connections, c) -- Track for Unload
         else
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                LocalPlayer.Character.Humanoid.PlatformStand = false
+            if LP.Character and LP.Character:FindFirstChild("Humanoid") then
+                LP.Character.Humanoid.PlatformStand = false
             end
             if root:FindFirstChild("FlyG") then root.FlyG:Destroy() end
             if root:FindFirstChild("FlyV") then root.FlyV:Destroy() end
@@ -1187,48 +613,49 @@ local function LoadGalaxy()
     -- TP handled by BindToRenderStep now
 
     local function AddKeybind(parent, text, default, id)
-        local f = Instance.new("Frame", parent)
-        f.Size = UDim2.new(1, -6, 0, 40)
-        f.BackgroundColor3 = Colors.Item
-        AddCorner(f, 6)
-        UpdateLayout(parent, f)
-        
-        local l = Instance.new("TextLabel", f)
-        l.Text = text .. " [" .. (default and default.Name or "None") .. "]"
-        l.Font = Enum.Font.GothamBold
-        l.TextColor3 = Colors.Text
-        l.BackgroundTransparency = 1
-        l.Size = UDim2.new(1, -20, 1, 0)
-        l.Position = UDim2.new(0, 12, 0, 0)
-        l.TextXAlignment = Enum.TextXAlignment.Left
-        l.TextSize = 13
-        
-        local btn = Instance.new("TextButton", f)
-        btn.Size = UDim2.new(1,0,1,0)
-        btn.BackgroundTransparency = 1
-        btn.Text = ""
-        
-        btn.MouseEnter:Connect(function() Tween(f, {BackgroundColor3 = Colors.Hover}) end)
-        btn.MouseLeave:Connect(function() Tween(f, {BackgroundColor3 = Colors.Item}) end)
-        
-        btn.MouseButton1Click:Connect(function()
-            l.Text = text .. " ..."
-            l.TextColor3 = Color3.fromRGB(255, 200, 0)
-            local c; c = Connect(UserInputService.InputBegan, function(k)
-                if k.UserInputType == Enum.UserInputType.Keyboard then
-                    config[id] = k.KeyCode -- Update Root Config (aimKey, menuKey etc)
-                    if config.binds then config.binds[id] = k.KeyCode end -- Redundancy
-                    
-                    l.Text = text .. " ["..k.KeyCode.Name.."]"
-                    l.TextColor3 = Colors.Text
-                    c:Disconnect()
-                    if RefreshKeyList then RefreshKeyList() end
-                end
-            end)
+        local f = Create("Frame", parent, {Size=UDim2.new(1,-6,0,40), BackgroundColor3=Colors.Item})
+        AddCorner(f,6); UpdateLayout(parent,f)
+        local l = Create("TextLabel", f, {Text=text.." ["..(default and default.Name or "None").."]", Font="GothamBold", TextColor3=Colors.Text, BackgroundTransparency=1, Size=UDim2.new(1,-20,1,0), Position=UDim2.new(0,12,0,0), TextXAlignment="Left", TextSize=13})
+        local btn = Create("TextButton", f, {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, Text=""})
+        btn.MouseButton1Click:Connect(function() l.Text = text.." ..."; l.TextColor3 = Color3.new(1,1,0)
+            local c; c = Connect(UIS.InputBegan, function(k) if k.UserInputType==Enum.UserInputType.Keyboard then config[id]=k.KeyCode; l.Text=text.." ["..k.KeyCode.Name.."]"; l.TextColor3=Colors.Text; c:Disconnect(); if RefreshKeyList then RefreshKeyList() end end end)
         end)
     end
 
-    AddDropdown(TabSettings, "Theme", {"Rainbow", "Purple", "Blue", "Red"}, function(v) UpdateThemeColors(v) end)
+    -- // HUD //
+    local KeyList = Create("Frame", ScreenGui, {Name="KeyList", Position=UDim2.new(1,-200,0.4,0), Size=UDim2.new(0,180,0,30), BackgroundColor3=Colors.Background, Visible=config.keybindList, Draggable=true, Active=true})
+    AddCorner(KeyList); local ks = AddStroke(KeyList, Colors.Accent, 1, 0.6); RegisterTheme(ks, "Color")
+    local KH = Create("Frame", KeyList, {Size=UDim2.new(1,0,0,28), BackgroundColor3=Colors.TopBar}); AddCorner(KH)
+    Create("Frame", KH, {Size=UDim2.new(1,0,0,10), Position=UDim2.new(0,0,1,-10), BackgroundColor3=Colors.TopBar, BorderSizePixel=0})
+    Create("TextLabel", KH, {Text="  Keybinds", Font="GothamBlack", TextColor3=Colors.Text, Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, TextSize=12, TextXAlignment="Left"})
+    local KC = Create("Frame", KeyList, {Position=UDim2.new(0,0,0,30), Size=UDim2.new(1,0,1,-30), BackgroundTransparency=1})
+    Create("UIListLayout", KC, {Padding=UDim.new(0,4)})
+    Create("UIPadding", KC, {PaddingTop=UDim.new(0,5), PaddingLeft=UDim.new(0,10), PaddingRight=UDim.new(0,10)})
+
+    RefreshKeyList = function()
+        for _,c in pairs(KC:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+        local function AddE(n,k) if not k then return end local f = Create("Frame", KC, {Size=UDim2.new(1,0,0,20), BackgroundTransparency=1})
+            Create("TextLabel", f, {Text=n, Font="GothamBold", TextSize=12, TextColor3=Colors.Text, Size=UDim2.new(0.6,0,1,0), BackgroundTransparency=1, TextXAlignment="Left"})
+            Create("TextLabel", f, {Text="["..k.Name.."]", Font="GothamBold", TextSize=12, TextColor3=Colors.Accent, Size=UDim2.new(0.4,0,1,0), Position=UDim2.new(0.6,0,0,0), BackgroundTransparency=1, TextXAlignment="Right"})
+        end
+        AddE("Menu", config.menuKey); AddE("Aimbot", config.aimKey)
+        for id,k in pairs(config.binds) do AddE(id:upper(), k) end
+        local i = 0; for _,v in pairs(KC:GetChildren()) do if v:IsA("Frame") then i += 1 end end
+        KeyList.Size = UDim2.new(0,180,0,30+(i*24)+10)
+    end
+    RefreshKeyList()
+    
+    -- Hook into Theme Update
+    Connect(RS.RenderStepped, function()
+        if config.theme=="Rainbow" then
+            Watermark.TextColor3 = rainbowColor; if WF:FindFirstChild("UIStroke") then WF.UIStroke.Color = rainbowColor end
+            if KeyList.Visible then if KeyList:FindFirstChild("UIStroke") then KeyList.UIStroke.Color = rainbowColor end end
+            for _,f in pairs(ArrayList:GetChildren()) do if f:IsA("Frame") then if f:FindFirstChild("UIStroke") then f.UIStroke.Color = rainbowColor end f:FindFirstChildOfClass("TextLabel").TextColor3 = rainbowColor end end
+        end
+    end)
+
+    AddToggle(TabSettings, "Show Keybinds", config.keybindList, function(s) KeyList.Visible = s end)
+    AddDropdown(TabSettings, "Theme", {"Rainbow", "Purple", "Blue", "Red"}, function(v) if Themes[v] then CurrentTheme=Themes[v]; config.theme=v end end)
     AddKeybind(TabSettings, "Menu Key", config.menuKey, "menuKey")
     AddKeybind(TabSettings, "Aimbot Bind", config.aimKey, "aimKey")
     AddKeybind(TabSettings, "Trigger Bind", config.triggerKey, "triggerKey")
@@ -1315,29 +742,30 @@ local function LoadGalaxy()
         end
     end)
 
+    AddButton(TabSettings, "Clear Config", function() ResetConfig(); RefreshKeyList() end)
     AddButton(TabSettings, "UNLOAD CHEAT", function()
         -- 1. Disconnect all events
         for _, c in pairs(Connections) do c:Disconnect() end
-        RunService:UnbindFromRenderStep("GalaxyTP") 
+        RS:UnbindFromRenderStep("G_TP") 
         
         -- 2. Deep Clean ESP from Workspace
         for _, p in pairs(Players:GetPlayers()) do
             if p.Character then ClearVisuals(p.Character) end
         end
         for _, v in pairs(workspace:GetDescendants()) do
-            if v.Name == "G_Box" or v.Name == "G_Beam" or v.Name == "G_Att" or v.Name == "invischair" then
+            if v.Name == "G_Box" or v.Name == "G_Beam" or v.Name == "G_Att" or v.Name == "invischair" or v.Name == "G_ChinaHat" then
                 pcall(function() v:Destroy() end)
             end
         end
         
         -- 3. Reset Character State
-        if LocalPlayer.Character then
-            if LocalPlayer.Character:FindFirstChild("Humanoid") then
-                LocalPlayer.Character.Humanoid.PlatformStand = false
-                LocalPlayer.Character.Humanoid.WalkSpeed = 16
-                LocalPlayer.Character.Humanoid.JumpPower = 50
+        if LP.Character then
+            if LP.Character:FindFirstChild("Humanoid") then
+                LP.Character.Humanoid.PlatformStand = false
+                LP.Character.Humanoid.WalkSpeed = 16
+                LP.Character.Humanoid.JumpPower = 50
             end
-            for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
+            for _, v in pairs(LP.Character:GetDescendants()) do
                 if v:IsA("BasePart") then v.CanCollide = true end
             end
         end
@@ -1350,109 +778,30 @@ local function LoadGalaxy()
     end)
 
     -- // ANIMATED MENU CONTROLS //
-    -- Default State
     MainFrame.Size = UDim2.new(0, 0, 0, 0)
     MainFrame.BackgroundTransparency = 1
     MainFrame.Visible = false
     
     local isMenuOpen = false
     local function ToggleMenu()
-        isMenuOpen = not isMenuOpen
-        
-        if isMenuOpen then
-            MainFrame.Visible = true
-            Tween(MainFrame, {Size = UDim2.new(0, 550, 0, 450), BackgroundTransparency = 0}, 0.4)
-            -- Tween Children Transparencies if needed, but inheriting is simpler for now
-        else
-            -- Shrink Close
-            Tween(MainFrame, {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}, 0.3)
-            task.delay(0.3, function() if not isMenuOpen then MainFrame.Visible = false end end)
-        end
-        print("Galaxy: ToggleMenu Called. Open:", isMenuOpen)
+        isMenuOpen = not isMenuOpen; MainFrame.Visible = true
+        MainFrame:TweenSize(isMenuOpen and UDim2.new(0,560,0,400) or UDim2.new(0,0,0,0), "Out", "Quint", 0.3, true)
+        Tween(MainFrame, {BackgroundTransparency = isMenuOpen and 0 or 1}, 0.3)
+        if not isMenuOpen then task.delay(0.3, function() MainFrame.Visible=false end) end
     end
-    
-    -- Fallback Button (Modern)
-    local OpenBtn = Instance.new("TextButton", ScreenGui)
-    OpenBtn.Name = "OpenBtn"
-    OpenBtn.Size = UDim2.new(0, 40, 0, 40)
-    OpenBtn.Position = UDim2.new(0, 20, 0.5, -20) -- Left Center
-    OpenBtn.BackgroundColor3 = Colors.Sidebar
-    OpenBtn.Text = "G"
-    OpenBtn.Font = Enum.Font.GothamBlack
-    OpenBtn.TextColor3 = Colors.Accent
-    OpenBtn.TextSize = 24
-    AddCorner(OpenBtn, 10)
-    AddStroke(OpenBtn, Colors.Hover, 2)
-    
-    OpenBtn.MouseButton1Click:Connect(function()
-        ToggleMenu()
+    local OpenBtn = Create("TextButton", ScreenGui, {Size=UDim2.new(0,44,0,44), Position=UDim2.new(0,20,0.5,-22), BackgroundColor3=Colors.TopBar, Text="G", Font="GothamBlack", TextColor3=Colors.Accent, TextSize=22})
+    AddCorner(OpenBtn,10); AddStroke(OpenBtn, Colors.Accent, 2, 0.5); OpenBtn.MouseButton1Click:Connect(ToggleMenu)
+    Connect(UIS.InputBegan, function(i,g) if not g and (config.menuKey and i.KeyCode==config.menuKey or i.KeyCode==Enum.KeyCode.RightShift) then ToggleMenu() end end)
+    local Circ = Create("Frame", ScreenGui, {BackgroundTransparency=1}); local CS = AddStroke(Circ, Colors.Accent, 2); AddCorner(Circ, 100)
+    Connect(RS.RenderStepped, function()
+        Circ.Visible = config.showFov and aimEnabled; Circ.Position = UDim2.new(0, Mouse.X-config.fovSize, 0, Mouse.Y-config.fovSize); Circ.Size = UDim2.new(0, config.fovSize*2, 0, config.fovSize*2); CS.Color = config.theme=="Rainbow" and rainbowColor or CurrentTheme.Accent
+        if isMenuOpen then UIS.MouseBehavior = "Default"; UIS.MouseIconEnabled = true end
     end)
     
-    -- Hide button when menu is open
-    MainFrame:GetPropertyChangedSignal("Visible"):Connect(function() 
-        OpenBtn.Visible = not MainFrame.Visible 
-    end)
-
-    Connect(UserInputService.InputBegan, function(i, g) 
-        -- Toggle on Insert OR Right Shift
-        if i.KeyCode == config.menuKey or i.KeyCode == Enum.KeyCode.RightShift then 
-            if not UserInputService:GetFocusedTextBox() then
-                ToggleMenu()
-            end
-        end 
-    end)
-    
-    local Circle = Instance.new("Frame", ScreenGui); Circle.BackgroundTransparency = 1; Circle.BorderSizePixel = 0
-    local CircleStroke = Instance.new("UIStroke", Circle); CircleStroke.Thickness = 2
-    local CircleCorner = Instance.new("UICorner", Circle); CircleCorner.CornerRadius = UDim.new(1,0)
-    
-    Connect(RunService.RenderStepped, function() 
-        Circle.Visible = config.showFov and aimEnabled
-        Circle.Position = UDim2.new(0, Mouse.X - config.fovSize, 0, Mouse.Y - config.fovSize)
-        Circle.Size = UDim2.new(0, config.fovSize*2, 0, config.fovSize*2)
-        local c = config.theme == "Rainbow" and rainbowColor or CurrentTheme.Accent
-        CircleStroke.Color = c
-        
-        -- v10.0: GENERAL MOUSE UNLOCK & ICON VISIBILITY
-        if isMenuOpen then
-            UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-            UserInputService.MouseIconEnabled = true
-        end
-    end)
-    
-    game:GetService("StarterGui"):SetCore("SendNotification", {Title = "GALAXY X", Text = "Premium Loaded", Duration = 5})
+    game:GetService("StarterGui"):SetCore("SendNotification", {Title = "GALAXY X", Text = "Cyber Slate v11 Loaded", Duration = 5})
 end
 
--- // PERSISTENT AUTH (24 HOUR BYPASS) //
-local function CheckAuth()
-    if isfile("galaxy.auth") then
-        local success, data = pcall(function() return HttpService:JSONDecode(readfile("galaxy.auth")) end)
-        if success and type(data) == "table" and data.key == "2026" and data.timestamp then
-            local elapsed = os.time() - data.timestamp
-            if elapsed < 86400 then -- 24 Hours
-                return true
-            end
-        end
-    end
-    return false
-end
 
-if CheckAuth() then
-    KeySystemGui:Destroy()
-    LoadGalaxy()
-else
-    KeyBtn.MouseButton1Click:Connect(function() 
-        if KeyBox.Text == "2026" then 
-            local authData = {
-                key = "2026",
-                timestamp = os.time()
-            }
-            writefile("galaxy.auth", HttpService:JSONEncode(authData))
-            KeySystemGui:Destroy() 
-            LoadGalaxy() 
-        else
-            KeyBtn.Text = "Invalid Key!"
-            task.delay(2, function() KeyBtn.Text = "Login" end)
-        end 
-    end)
-end
+KeyBtn.MouseButton1Click:Connect(function() 
+    if KeyBox.Text == "2026" then writefile("galaxy.auth", HS:JSONEncode({key="2026", timestamp=os.time()})); KeySystemGui:Destroy(); LoadGalaxy() else KeyBtn.Text = "Invalid!" task.delay(2, function() KeyBtn.Text="Login" end) end 
+end)
